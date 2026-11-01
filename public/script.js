@@ -920,8 +920,14 @@
             reelHud.classList.remove('hidden');
             reelControls.classList.remove('hidden');
           }
+          document.querySelector('.hero-showreel')?.classList.remove('showreel-pending');
+          document.querySelector('.hero-showreel')?.setAttribute('aria-busy', 'false');
         })
-        .catch(() => {});
+        .catch(() => {
+          const showreelShell = document.querySelector('.hero-showreel');
+          showreelShell?.classList.remove('showreel-pending');
+          showreelShell?.setAttribute('aria-busy', 'false');
+        });
 
       function getYouTubeVideoId(rawUrl) {
         try {
