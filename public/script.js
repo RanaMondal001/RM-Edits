@@ -779,6 +779,12 @@
       });
 
       // Load the content managed in the password-protected admin panel.
+      const routeSections = { services: 'services', pricing: 'calculator', work: 'portfolio', color: 'color-grade', contact: 'contact' };
+      function scrollToRouteSection() {
+        const route = window.location.pathname.split('/').filter(Boolean).pop()?.toLowerCase();
+        const sectionId = routeSections[route];
+        if (sectionId) requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView({ block: 'start' }));
+      }
       fetch('/api/public/content')
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('Content unavailable')))
         .then((content) => {
@@ -922,11 +928,13 @@
           }
           document.querySelector('.hero-showreel')?.classList.remove('showreel-pending');
           document.querySelector('.hero-showreel')?.setAttribute('aria-busy', 'false');
+          scrollToRouteSection();
         })
         .catch(() => {
           const showreelShell = document.querySelector('.hero-showreel');
           showreelShell?.classList.remove('showreel-pending');
           showreelShell?.setAttribute('aria-busy', 'false');
+          scrollToRouteSection();
         });
 
       function getYouTubeVideoId(rawUrl) {
