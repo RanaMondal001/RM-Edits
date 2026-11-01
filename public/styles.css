@@ -138,6 +138,14 @@ header.sticky {
   box-shadow: 0 24px 80px rgba(0, 40, 110, .28);
 }
 
+/* Keep the built-in demo hidden until saved showreel settings have loaded. */
+.hero-showreel.showreel-pending #showreelCanvas,
+.hero-showreel.showreel-pending #reelHud,
+.hero-showreel.showreel-pending #reelControls,
+.hero-showreel.showreel-pending #reelSceneBadge {
+  visibility: hidden;
+}
+
 .hero-copy h1 {
   max-width: 12ch;
   font-size: clamp(2.7rem, 5.3vw, 4.5rem);
