@@ -220,3 +220,6 @@ details[open] > :not(summary) { animation: dropdown-content-open .28s ease both;
 .quote-step-button:hover { transform: translateY(-2px); box-shadow: 0 0 24px #00d2ff55; }
 .quote-quantity-input { width: 72px; flex: none; border: 1px solid #263750; border-radius: 10px; background: #090b10; padding: 9px; color: #fff; text-align: center; font: 700 13px ui-monospace, monospace; }
 .quote-quantity-input:focus { border-color: #00d2ff; outline: none; box-shadow: 0 0 0 3px #00d2ff24; }
+
+
+#services, #calculator, #portfolio, #color-grade, #contact { scroll-margin-top: 5.5rem; }
