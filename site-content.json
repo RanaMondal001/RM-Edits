@@ -1,0 +1,170 @@
+{
+  "brandName": "RM-Edits",
+  "role": "Cinematic Video Editor & Colorist",
+  "availability": "AVAILABLE FOR FREELANCE & RETAINERS",
+  "heroTitle": "Turning Raw Footage Into High-Impact Cinema.",
+  "heroDescription": "Hi, I’m Rana Mondal. I edit videos, create motion graphics, and color-grade projects for creators, brands, and filmmakers.",
+  "email": "contact.rmedits@gmail.com",
+  "contactHeading": "Work with Rana Mondal",
+  "contactIntro": "Tell Rana about your project and he can reply to the email address you provide.",
+  "contactEyebrow": "Let’s Work Together",
+  "contactDirectLabel": "STUDIO EMAIL",
+  "copyEmailLabel": "Copy Email",
+  "contactWorkflowTitle": "TURNAROUND & WORKFLOW",
+  "contactWorkflowDetails": "• Raw footage transfer via Google Drive, Frame.io, or WeTransfer\n• First draft cut within 48–72 hours with Frame.io timestamped review\n• Revision rounds agreed before editing starts",
+  "contactFormTitle": "Send a Project Inquiry",
+  "contactFormBadge": "PRIVATE ADMIN INBOX",
+  "contactSubmitLabel": "Send Brief to Rana Mondal",
+  "contactPrivacyNote": "Your contact details and brief are stored privately for Rana to respond. Please do not include passwords or sensitive files.",
+  "servicesHeading": "Editing Services by Rana Mondal",
+  "servicesIntro": "Video editing, motion design, and color grading tailored to your brief, audience, and delivery needs.",
+  "showreelVideo": "/media/showreel.mp4",
+  "showreelYoutubeUrl": "",
+  "showreelThumbnail": "/media/showreel-thumbnail.jpg",
+  "colorPreview": {
+    "eyebrow": "Illustrative Color Demo",
+    "title": "Interactive Color Look Preview",
+    "description": "This interactive color-look demo is illustrative artwork, not a before-and-after from a client project.",
+    "beforeLabel": "",
+    "afterLabel": "MASTER GRADE",
+    "split": 55,
+    "nodeTree": "",
+    "beforeImage": "/media/color-preview-before.jpg",
+    "gradeOptions": [
+      {
+        "label": "Natural / Uncoloured",
+        "imageUrl": "/media/color-preview-grade-1.png"
+      },
+      {
+        "label": "Teal & Orange",
+        "imageUrl": "/media/color-preview-grade-2.jpg"
+      },
+      {
+        "label": "Midnight Blue",
+        "imageUrl": "/media/color-preview-grade-3.png"
+      },
+      {
+        "label": "Vintage Film",
+        "imageUrl": "/media/color-preview-grade-4.png"
+      }
+    ]
+  },
+  "pricingEnabled": true,
+  "pricing": {
+    "usdRate": 95,
+    "serviceRates": {
+      "youtube": {
+        "billingUnit": "minute",
+        "label": "YouTube Long-Form / Documentary",
+        "rateInr": 500,
+        "extraMinuteRateInr": 20,
+        "baseIncludes": "Core editing, pacing, and one standard final export.",
+        "motionInr": 500,
+        "colorInr": 200,
+        "soundInr": 200,
+        "rushInr": 500
+      },
+      "reels": {
+        "billingUnit": "video",
+        "label": "Short-Form Reels / Shorts",
+        "rateInr": 100,
+        "baseIncludes": "Core editing, pacing, and one standard final export.",
+        "defaultQuantity": 1,
+        "motionInr": 200,
+        "colorInr": 200,
+        "soundInr": 200,
+        "rushInr": 500
+      },
+      "commercial": {
+        "billingUnit": "video",
+        "label": "Commercial / Brand Performance Ad",
+        "rateInr": 500,
+        "baseIncludes": "Core editing, pacing, and one standard final export.",
+        "defaultQuantity": 1,
+        "motionInr": 500,
+        "colorInr": 200,
+        "soundInr": 200,
+        "rushInr": 500
+      },
+      "music": {
+        "billingUnit": "video",
+        "label": "Cinematic Music Video + VFX",
+        "rateInr": 2000,
+        "baseIncludes": "Core editing, pacing, and one standard final export.",
+        "defaultQuantity": 1,
+        "motionInr": 500,
+        "colorInr": 200,
+        "soundInr": 200,
+        "rushInr": 500
+      },
+      "wedding": {
+        "billingUnit": "video",
+        "label": "Wedding Highlight + Full Ceremony Film",
+        "rateInr": 1000,
+        "baseIncludes": "Core editing, pacing, and one standard final export.",
+        "defaultQuantity": 1,
+        "motionInr": 500,
+        "colorInr": 200,
+        "soundInr": 200,
+        "rushInr": 500
+      }
+    },
+    "baseRatesInr": {
+      "youtube": 500,
+      "reels": 100,
+      "commercial": 500,
+      "music": 2000,
+      "wedding": 1000
+    },
+    "perMinuteInr": 20,
+    "motionInr": 500,
+    "colorInr": 200,
+    "soundInr": 200,
+    "rushInr": 500,
+    "typeLabels": {
+      "youtube": "YouTube Long-Form / Documentary",
+      "reels": "Short-Form Reels / Shorts",
+      "commercial": "Commercial / Brand Performance Ad",
+      "music": "Cinematic Music Video + VFX",
+      "wedding": "Wedding Highlight + Full Ceremony Film"
+    }
+  },
+  "services": [
+    {
+      "title": "YouTube & Documentary Editing",
+      "buttonLabel": "Calculate YouTube Edit",
+      "description": "Story-focused editing, motion graphics, custom maps, captions, and pacing tailored to the creator’s brief."
+    },
+    {
+      "title": "Reels, Shorts & TikToks",
+      "buttonLabel": "Calculate Reels Pack",
+      "description": "Kinetic typography, beat-synced B-roll, clean transitions, sound design, and hook-focused pacing."
+    },
+    {
+      "title": "Commercials & Brand Ads",
+      "buttonLabel": "Calculate Commercial",
+      "description": "Product-focused edits, motion graphics, color grading, and exports for your campaign formats."
+    },
+    {
+      "title": "Music Videos & Wedding Films",
+      "buttonLabel": "Calculate Film Cut",
+      "description": "Multi-camera edits, narrative pacing, color treatment, and sound finishing for your film."
+    }
+  ],
+  "projects": [
+    {
+      "id": "project-1793537658524",
+      "title": "Zara Zara Bahekta Hai - jalraj | Slowed Reverb |",
+      "category": "music",
+      "categoryLabel": "song",
+      "views": "10M+ Views",
+      "viewsNum": 10000000,
+      "duration": "5m",
+      "tools": "Davinchi Resolve",
+      "accent": "#0051ff",
+      "desc": "this video edited by me",
+      "thumbnailUrl": "",
+      "videoUrl": "https://youtu.be/ga1HVaO-n84?si=7hk3NwT1H9S6ilBS"
+    }
+  ]
+}
