@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from vercel.blob import BlobClient
+from vercel import blob
 
 from server import Handler, portfolio_category_for_video, vercel_blob_url_ok, video_url_ok, youtube_video_id
 
@@ -42,22 +42,20 @@ async def api_error_response(_request: WebRequest, error: StarletteHTTPException
     return JSONResponse({"error": message}, status_code=error.status_code, headers=error.headers)
 
 
-def _put_blob(pathname: str, body: bytes, **options):
-    with BlobClient() as client:
-        return client.put(pathname, body, **options)
-
-
 async def put_blob(pathname: str, body: bytes, **options):
-    return await asyncio.to_thread(_put_blob, pathname, body, **options)
-
-
-def _delete_blobs(urls: list[str]) -> None:
-    with BlobClient() as client:
-        client.delete(urls)
+    options = dict(options)
+    multipart = options.pop("multipart", False)
+    if multipart:
+        part_size = 5 * 1024 * 1024
+        async with blob.multipart_upload_blob(pathname, **options) as upload:
+            for offset in range(0, len(body), part_size):
+                await upload.upload_part(body[offset:offset + part_size])
+        return upload.result
+    return await blob.put_blob(pathname, body, **options)
 
 
 async def delete_blobs(urls: list[str]) -> None:
-    await asyncio.to_thread(_delete_blobs, urls)
+    await blob.delete_blob(urls)
 
 
 def database_connection():
