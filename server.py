@@ -328,7 +328,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, read_json(INQUIRIES_FILE, []))
             return self.reply(404, {"error": "Not found."})
 
-        if route in {"/", "/home", "/home/"}:
+        if route in {"/", "/home", "/home/", "/services", "/services/", "/pricing", "/pricing/", "/work", "/work/", "/color", "/color/", "/contact", "/contact/"}:
             name = "index.html"
         else:
             name = unquote(route.lstrip("/"))
