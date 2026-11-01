@@ -644,6 +644,8 @@ def get_media(filename: str):
 @app.get("/{asset_path:path}")
 def get_static_file(asset_path: str):
     name = asset_path or "index.html"
+    if name.rstrip("/") == "home":
+        name = "index.html"
     if name not in STATIC_FILES:
         raise HTTPException(404, "Not found.")
     path = PUBLIC_DIR / name
