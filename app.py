@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from vercel.blob import AsyncBlobClient
+from vercel.blob import BlobClient
 
 from server import Handler, portfolio_category_for_video, vercel_blob_url_ok, video_url_ok, youtube_video_id
 
@@ -40,6 +40,24 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 async def api_error_response(_request: WebRequest, error: StarletteHTTPException):
     message = error.detail if isinstance(error.detail, str) else "The request could not be completed."
     return JSONResponse({"error": message}, status_code=error.status_code, headers=error.headers)
+
+
+def _put_blob(pathname: str, body: bytes, **options):
+    with BlobClient() as client:
+        return client.put(pathname, body, **options)
+
+
+async def put_blob(pathname: str, body: bytes, **options):
+    return await asyncio.to_thread(_put_blob, pathname, body, **options)
+
+
+def _delete_blobs(urls: list[str]) -> None:
+    with BlobClient() as client:
+        client.delete(urls)
+
+
+async def delete_blobs(urls: list[str]) -> None:
+    await asyncio.to_thread(_delete_blobs, urls)
 
 
 def database_connection():
@@ -430,8 +448,7 @@ async def update_admin_content(request: WebRequest):
 
     if retired_urls:
         try:
-            client = AsyncBlobClient()
-            await client.delete(list(retired_urls))
+            await delete_blobs(list(retired_urls))
         except Exception:
             # Content updates should succeed even if Blob cleanup needs a retry.
             pass
@@ -560,9 +577,8 @@ async def upload_part(upload_id: str, part_number: int, request: WebRequest):
         expected = min(MAX_UPLOAD_CHUNK, upload["file_size"] - (part_number - 1) * MAX_UPLOAD_CHUNK)
         if len(raw) != expected:
             raise HTTPException(400, "Upload part size does not match.")
-    client = AsyncBlobClient()
     try:
-        blob = await client.put(f"temporary/{upload_id}/{part_number}.part", raw, access="public", content_type="application/octet-stream", add_random_suffix=True)
+        blob = await put_blob(f"temporary/{upload_id}/{part_number}.part", raw, access="public", content_type="application/octet-stream", add_random_suffix=True)
     except Exception as error:
         raise HTTPException(502, "Could not save the upload part to Vercel Blob.") from error
     with database_connection() as connection:
@@ -599,10 +615,9 @@ async def complete_upload(request: WebRequest):
         combined = b"".join(parts)
         if len(combined) != upload["file_size"] or not media_type_from_signature(upload["content_type"], combined):
             raise ValueError("File content does not match its selected type")
-        client = AsyncBlobClient()
-        blob = await client.put(upload_path(upload["asset_key"], upload_id, upload["content_type"]), combined,
-                                access="public", content_type=upload["content_type"], add_random_suffix=True,
-                                multipart=upload["file_size"] > 5 * 1024 * 1024)
+        blob = await put_blob(upload_path(upload["asset_key"], upload_id, upload["content_type"]), combined,
+                              access="public", content_type=upload["content_type"], add_random_suffix=True,
+                              multipart=upload["file_size"] > 5 * 1024 * 1024)
     except Exception as error:
         raise HTTPException(422, "The selected file could not be assembled. Please upload it again.") from error
     chunk_urls = [row["blob_url"] for row in chunks]
@@ -612,7 +627,7 @@ async def complete_upload(request: WebRequest):
         connection.execute("DELETE FROM rm_uploads WHERE id = %s", (upload_id,))
         connection.execute("INSERT INTO rm_uploaded_media (blob_url) VALUES (%s) ON CONFLICT DO NOTHING", (blob.url,))
     try:
-        await AsyncBlobClient().delete(chunk_urls)
+        await delete_blobs(chunk_urls)
     except Exception:
         pass
     return {"url": blob.url}
