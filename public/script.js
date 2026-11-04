@@ -1,10 +1,80 @@
 (function () {
+      const motionObserver = !window.matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window
+        ? new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-visible');
+              entry.target.style.removeProperty('--motion-delay');
+              motionObserver.unobserve(entry.target);
+            });
+          }, { threshold: 0.12, rootMargin: '0px 0px -32px 0px' })
+        : null;
+      if (motionObserver) document.documentElement.classList.add('motion-enabled');
+      function watchMotion(elements) {
+        if (!motionObserver) return;
+        [...elements].forEach((element, index) => {
+          if (element.dataset.motionReady) return;
+          element.dataset.motionReady = 'true';
+          element.classList.add('motion-reveal');
+          element.style.setProperty('--motion-delay', `${(index % 4) * 42}ms`);
+          motionObserver.observe(element);
+        });
+      }
+      const scrollProgressBar = document.getElementById('scrollProgress');
+      const supportsPortfolioParallax = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let pageMotionFrame = 0;
+      function updatePageMotion() {
+        if (pageMotionFrame) return;
+        pageMotionFrame = requestAnimationFrame(() => {
+          pageMotionFrame = 0;
+          const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+          const progress = scrollableHeight > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollableHeight)) : 0;
+          const viewportHeight = window.innerHeight || 1;
+          const parallaxUpdates = supportsPortfolioParallax
+            ? [...document.querySelectorAll('#portfolioGrid .portfolio-parallax')].flatMap(media => {
+                const bounds = media.parentElement.getBoundingClientRect();
+                if (bounds.bottom < 0 || bounds.top > viewportHeight) return [];
+                const distanceFromCenter = bounds.top + bounds.height / 2 - viewportHeight / 2;
+                const range = (viewportHeight + bounds.height) / 2;
+                const amount = -Math.max(-1, Math.min(1, distanceFromCenter / range)) * 20;
+                return [[media, amount]];
+              })
+            : [];
+          scrollProgressBar?.style.setProperty('--scroll-progress', progress.toFixed(4));
+          parallaxUpdates.forEach(([media, amount]) => media.style.setProperty('--portfolio-parallax', `${amount}px`));
+        });
+      }
+      window.addEventListener('scroll', updatePageMotion, { passive: true });
+      window.addEventListener('resize', updatePageMotion, { passive: true });
+      updatePageMotion();
+      watchMotion(document.querySelectorAll('#hero .hero-copy > *, #hero .hero-showreel, #portfolio > div:first-child, #portfolio h2, #color-grade > .grid > div, #color-grade h2, #services > div:first-child, #services h2, #services .grid > div, #editing-packages .package-section-heading, #editing-packages .package-card, #contact > .grid > div, #contact h2'));
+
       window.addEventListener('storage', event => {
         if (event.key === 'rm-edits-content-updated') window.location.reload();
       });
 
       // --- PORTFOLIO DATA ---
+      const portfolioGrid = document.getElementById('portfolioGrid');
       let portfolioProjects = [];
+      const supportsPortfolioTilt = supportsPortfolioParallax && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      if (supportsPortfolioTilt) {
+        portfolioGrid.addEventListener('pointermove', event => {
+          const card = event.target.closest('#portfolioGrid > article');
+          if (!card) return;
+          const bounds = card.getBoundingClientRect();
+          const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+          const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+          card.style.setProperty('--card-tilt-x', `${(0.5 - y) * 5}deg`);
+          card.style.setProperty('--card-tilt-y', `${(x - 0.5) * 5}deg`);
+          card.style.setProperty('--card-pointer-x', `${x * 100}%`);
+          card.style.setProperty('--card-pointer-y', `${y * 100}%`);
+        });
+        portfolioGrid.addEventListener('pointerout', event => {
+          const card = event.target.closest('#portfolioGrid > article');
+          if (!card || card.contains(event.relatedTarget)) return;
+          ['--card-tilt-x', '--card-tilt-y'].forEach(property => card.style.removeProperty(property));
+        });
+      }
 
       // --- STATE ---
       let activeCategory = 'all';
@@ -174,8 +244,6 @@
       });
 
       // --- RENDER PORTFOLIO GRID ---
-      const portfolioGrid = document.getElementById('portfolioGrid');
-
       function getProjectThumbnailUrl(project) {
         if (project.thumbnailUrl && /^(https:\/\/|\/)/i.test(project.thumbnailUrl)) return project.thumbnailUrl;
         if (!project.videoUrl) return '';
@@ -188,6 +256,21 @@
           }
           return /^[\w-]{11}$/.test(videoId) ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '';
         } catch { return ''; }
+      }
+
+      function getProjectToolRows(project) {
+        const savedToolLines = Object.fromEntries(
+          String(project.tools || '').split('|').map(part => {
+            const separator = part.indexOf(':');
+            return separator < 0 ? ['', ''] : [part.slice(0, separator).trim().toLowerCase(), part.slice(separator + 1).trim()];
+          }).filter(([label, value]) => label && value)
+        );
+        return [
+          ['Thumbnail Design', project.toolSelections?.thumbnail || savedToolLines['thumbnail design']],
+          ['Video Editing', project.toolSelections?.editing || savedToolLines['video editing']],
+          ['Colour Grading', project.toolSelections?.grading || savedToolLines['colour grading']],
+          ['Sound Design', project.toolSelections?.sound || savedToolLines['sound design']]
+        ].filter(([, value]) => value);
       }
 
       function renderPortfolio() {
@@ -219,12 +302,16 @@
           .map((item) => {
             const isSaved = Boolean(savedIds[item.id]);
             const thumbnailUrl = escapeHtml(getProjectThumbnailUrl(item));
+            const toolRows = getProjectToolRows(item);
+            const toolsMarkup = toolRows.length
+              ? `<div class="project-tools">${toolRows.map(([label, value]) => `<div class="project-tool-line"><strong>${escapeHtml(label)}:</strong><span>${escapeHtml(value)}</span></div>`).join('')}</div>`
+              : '';
             return `
               <article class="rounded-2xl bg-[#121621] border border-slate-800 hover:border-amber-500/50 overflow-hidden flex flex-col justify-between transition-all group">
                 <div>
                   <!-- Use the linked video's thumbnail when available, otherwise show generated artwork. -->
                   <div class="relative aspect-video bg-[#080a10] overflow-hidden border-b border-slate-800">
-                    ${thumbnailUrl ? `<img src="${thumbnailUrl}" alt="${escapeHtml(item.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />` : `<svg class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" viewBox="0 0 400 225" xmlns="http://www.w3.org/2000/svg">
+                    ${thumbnailUrl ? `<img src="${thumbnailUrl}" alt="${escapeHtml(item.title)}" class="portfolio-parallax w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />` : `<svg class="portfolio-parallax w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" viewBox="0 0 400 225" xmlns="http://www.w3.org/2000/svg">
                       <defs>
                         <linearGradient id="grad-${escapeHtml(item.id)}" x1="0%" y1="0%" x2="100%" y2="100%">
                           <stop offset="0%" stop-color="#090d16" />
@@ -262,7 +349,7 @@
                     </div>
                     <h3 class="text-base sm:text-lg font-bold text-white leading-snug">${escapeHtml(item.title)}</h3>
                     <p class="text-xs sm:text-sm text-slate-400 line-clamp-2">${escapeHtml(item.desc)}</p>
-                    <div class="pt-1 text-[11px] font-mono text-cyan-400">${escapeHtml(item.tools)}</div>
+                    ${toolsMarkup}
                   </div>
                 </div>
 
@@ -275,6 +362,8 @@
             `;
           })
           .join('');
+        watchMotion(portfolioGrid.querySelectorAll(':scope > article'));
+        updatePageMotion();
       }
 
       renderPortfolio();
@@ -335,7 +424,9 @@
         document.getElementById('modalProjectTitle').textContent = proj.title;
         document.getElementById('modalProjectStats').textContent = [proj.views, proj.duration].filter(Boolean).join(' • ');
         document.getElementById('modalProjectDesc').textContent = proj.desc;
-        document.getElementById('modalProjectTools').textContent = proj.tools;
+        document.getElementById('modalProjectTools').innerHTML = getProjectToolRows(proj)
+          .map(([label, value]) => `<div class="project-tool-line"><strong>${escapeHtml(label)}:</strong><span>${escapeHtml(value)}</span></div>`)
+          .join('');
         const thumbnail = document.getElementById('modalProjectThumbnail');
         const projectThumbnailUrl = getProjectThumbnailUrl(proj);
         if (projectThumbnailUrl) {
@@ -413,6 +504,7 @@
       const colorGradeSlider = document.getElementById('colorGradeSlider');
       let currentGradeIndex = 0;
       let gradeImages = { before: null, graded: [null, null, null, null] };
+      let gradeImageSources = { before: '', graded: ['', '', '', ''] };
       let gradeOptionLabels = ['Graded Image 1', 'Graded Image 2', 'Graded Image 3', 'Graded Image 4'];
       const fallbackGradeLooks = [
         { sky: '#083344', glow: '#f59e0b', hill: '#0f172a' },
@@ -425,9 +517,19 @@
         const blobImage = typeof path === 'string' && /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//.test(path);
         if (!localImage && !blobImage) return null;
         const img = new Image();
+        img.decoding = 'async';
+        img.fetchPriority = 'low';
         img.onload = renderColorGradeComparison;
         img.src = path;
         return img;
+      }
+      function loadGradePreviewImages(index = currentGradeIndex) {
+        if (!gradeImages.before && gradeImageSources.before) {
+          gradeImages.before = loadGradeImage(gradeImageSources.before);
+        }
+        if (index >= 0 && index < gradeImages.graded.length && !gradeImages.graded[index] && gradeImageSources.graded[index]) {
+          gradeImages.graded[index] = loadGradeImage(gradeImageSources.graded[index]);
+        }
       }
       function drawCover(image) {
         const imageRatio = image.naturalWidth / image.naturalHeight;
@@ -565,6 +667,7 @@
       document.querySelectorAll('.grade-option-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
           currentGradeIndex = Number(btn.getAttribute('data-grade-index'));
+          loadGradePreviewImages(currentGradeIndex);
           document.getElementById('activeGradeBadge').textContent = gradeOptionLabels[currentGradeIndex];
           document.querySelectorAll('.grade-option-btn').forEach((b) => {
             b.className = 'grade-option-btn px-3 py-2.5 rounded-xl text-xs font-mono font-semibold border border-slate-800 bg-[#121621] text-slate-300 hover:text-white text-left';
@@ -575,148 +678,114 @@
       });
       renderColorGradeComparison();
 
-      // --- QUOTE CALCULATOR ---
-      let calcCurrency = 'INR';
-      let baseRatesInr = {
-        youtube: 4500,
-        reels: 5500,
-        commercial: 7500,
-        music: 9000,
-        wedding: 12000
-      };
-      let pricingOptions = { perMinuteInr: 350, motionInr: 2000, colorInr: 1500, soundInr: 1200, rushInr: 2500, usdRate: 82 };
-      let servicePricing = {};
-      const defaultBillingUnits = { youtube: 'minute', reels: 'video', commercial: 'video', music: 'video', wedding: 'video' };
-
-      function updateQuoteCalculator() {
-        const type = document.getElementById('calcProjectType').value;
-        const quantity = Number(document.getElementById('calcDurationRange').value);
-        const quantitySlider = document.getElementById('calcDurationRange');
-        const quantityNumber = document.getElementById('calcQuantityNumber');
-        const serviceRate = servicePricing[type] || {};
-        const billingUnit = serviceRate.billingUnit === 'video' ? 'video' : 'minute';
-        const isPerVideo = billingUnit === 'video';
-        quantitySlider.min = isPerVideo ? '1' : '0';
-        quantityNumber.min = '1';
-        quantityNumber.value = quantity === 0 && !isPerVideo ? '' : String(quantity);
-        quantityNumber.setAttribute('aria-label', isPerVideo ? 'Number of videos (1 to 30)' : 'Added minutes (0 to 30)');
-        document.getElementById('calcBaseIncludes').textContent = serviceRate.baseIncludes
-          ? `${isPerVideo ? 'Each video rate includes' : 'Base project includes'}: ${serviceRate.baseIncludes}`
-          : '';
-        document.getElementById('calcQuantityLabel').textContent = isPerVideo ? '2. Number of Videos' : '2. Additional Minutes';
-        document.getElementById('calcDurationLabel').textContent = isPerVideo
-          ? `${quantity} Video${quantity > 1 ? 's' : ''}`
-          : quantity === 0 ? 'No added minutes' : `${quantity} Added Minute${quantity > 1 ? 's' : ''}`;
-        document.getElementById('calcPricingNote').textContent = isPerVideo
-          ? 'The service rate and selected add-ons are charged for each video.'
-          : 'The base fee covers the project. Each added minute is charged at the per-minute add-on rate.';
-
-        const motion = document.getElementById('addonMotion').checked;
-        const color = document.getElementById('addonColor').checked;
-        const sound = document.getElementById('addonSound').checked;
-        const rush = document.getElementById('addonRush').checked;
-
-        const rateInr = serviceRate.rateInr ?? baseRatesInr[type];
-        const unitMultiplier = isPerVideo ? quantity : 1;
-        let totalInr = isPerVideo
-          ? rateInr * quantity
-          : rateInr + quantity * (serviceRate.extraMinuteRateInr ?? pricingOptions.perMinuteInr);
-        const lines = isPerVideo
-          ? [`${quantity} video${quantity > 1 ? 's' : ''} × per-video rate`]
-          : ['Base fee for the project'];
-        if (!isPerVideo && quantity > 0) lines.push(`${quantity} added minute${quantity === 1 ? '' : 's'} × per-minute rate`);
-
-        if (motion) {
-          totalInr += (serviceRate.motionInr ?? pricingOptions.motionInr) * unitMultiplier;
-          lines.push(isPerVideo ? '+ Motion graphics per video' : '+ After Effects Motion Graphics');
-        }
-        if (color) {
-          totalInr += (serviceRate.colorInr ?? pricingOptions.colorInr) * unitMultiplier;
-          lines.push(isPerVideo ? '+ Color grading per video' : '+ DaVinci 10-Bit Color Grading');
-        }
-        if (sound) {
-          totalInr += (serviceRate.soundInr ?? pricingOptions.soundInr) * unitMultiplier;
-          lines.push(isPerVideo ? '+ Sound design per video' : '+ Cinema Sound Design & Mastering');
-        }
-        if (rush) {
-          totalInr += (serviceRate.rushInr ?? pricingOptions.rushInr) * unitMultiplier;
-          lines.push(isPerVideo ? '+ Rush delivery per video' : '+ 48-Hour Express Rush Delivery');
-        }
-
-        const formattedTotal =
-          calcCurrency === 'INR'
-            ? `₹${totalInr.toLocaleString('en-IN')}`
-            : `$${Math.round(totalInr / pricingOptions.usdRate).toLocaleString('en-US')}`;
-
-        document.getElementById('calcTotalDisplay').textContent = formattedTotal;
-        document.getElementById('calcBreakdownList').innerHTML = lines
-          .map((l) => `<div class="flex items-center gap-2"><span class="text-amber-400">✓</span><span>${l}</span></div>`)
-          .join('');
+      let activePackageIndex = 0;
+      let activePackage = null;
+      let selectedPackageAddonIndexes = new Set();
+      const packageAddonPriceDefaults = { 'Color grading': 200, 'Sound design & mixing': 200, 'Motion graphics': 500, Subtitles: 0, 'Thumbnail included': 0, 'Include source file': 0 };
+      function packagePriceLabel(value) {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value) || 0);
       }
-
-      document.getElementById('calcProjectType').addEventListener('change', () => {
-        const serviceRate = servicePricing[document.getElementById('calcProjectType').value];
-        const slider = document.getElementById('calcDurationRange');
-        const isVideo = serviceRate?.billingUnit === 'video';
-        slider.min = isVideo ? '1' : '0';
-        slider.value = isVideo ? serviceRate?.defaultQuantity ?? 1 : 0;
-        updateQuoteCalculator();
-      });
-
-      const quantitySlider = document.getElementById('calcDurationRange');
-      const quantityNumber = document.getElementById('calcQuantityNumber');
-      quantitySlider.addEventListener('input', updateQuoteCalculator);
-      quantityNumber.addEventListener('input', () => {
-        const minimum = Number(quantitySlider.min);
-        if (quantityNumber.value === '' && minimum === 0) { quantitySlider.value = '0'; updateQuoteCalculator(); return; }
-        const value = Math.min(30, Math.max(Math.max(1, minimum), Number(quantityNumber.value) || 1));
-        quantitySlider.value = String(value);
-        updateQuoteCalculator();
-      });
-      document.getElementById('calcQuantityPlus').addEventListener('click', () => {
-        quantitySlider.value = String(Math.min(30, Number(quantitySlider.value) + 1));
-        updateQuoteCalculator();
-      });
-
-      ['addonMotion', 'addonColor', 'addonSound', 'addonRush'].forEach((id) => {
-        document.getElementById(id).addEventListener('input', updateQuoteCalculator);
-        document.getElementById(id).addEventListener('change', updateQuoteCalculator);
-      });
-
-      document.getElementById('currencyInrBtn').addEventListener('click', () => {
-        calcCurrency = 'INR';
-        document.getElementById('currencyInrBtn').className = 'px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500 text-black';
-        document.getElementById('currencyUsdBtn').className = 'px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold text-slate-400 hover:text-white';
-        updateQuoteCalculator();
-      });
-
-      document.getElementById('currencyUsdBtn').addEventListener('click', () => {
-        calcCurrency = 'USD';
-        document.getElementById('currencyUsdBtn').className = 'px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500 text-black';
-        document.getElementById('currencyInrBtn').className = 'px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold text-slate-400 hover:text-white';
-        updateQuoteCalculator();
-      });
-
-      document.querySelectorAll('.service-select-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const preset = btn.getAttribute('data-service-preset');
-          document.getElementById('calcProjectType').value = preset;
-          document.getElementById('calcProjectType').dispatchEvent(new Event('change', { bubbles: true }));
-          document.getElementById('calculator').scrollIntoView({ behavior: 'smooth' });
-        });
-      });
-
-      document.getElementById('applyQuoteToContactBtn').addEventListener('click', () => {
-        const estimate = document.getElementById('calcTotalDisplay').textContent;
-        const typeSelect = document.getElementById('calcProjectType');
-        const selectedText = typeSelect.options[typeSelect.selectedIndex].text;
-        document.getElementById('clientBudget').value = estimate;
-        document.getElementById('clientMessage').value = `Hi Rana, I used your quote calculator for "${selectedText}" (Estimated: ${estimate}). Let's discuss this project.`;
+      function renderPackagePicker(config) {
+        const section = document.getElementById('editing-packages');
+        const tiers = Array.isArray(config?.tiers) ? config.tiers.slice(0, 3) : [];
+        if (!config || config.enabled === false || tiers.length !== 3) {
+          section.classList.add('hidden');
+          return;
+        }
+        section.classList.remove('hidden');
+        watchMotion(section.querySelectorAll('.package-section-heading, .package-card'));
+        document.getElementById('packageHeading').textContent = config.heading || 'Choose your editing package';
+        document.getElementById('packageIntro').textContent = config.intro || '';
+        const tabs = document.getElementById('packageTabs');
+        tabs.replaceChildren(...tiers.map((tier, index) => {
+          const tab = document.createElement('button');
+          tab.type = 'button'; tab.className = 'package-tab'; tab.setAttribute('role', 'tab');
+          tab.setAttribute('aria-selected', String(index === activePackageIndex));
+          tab.textContent = tier.tabLabel || `Package ${index + 1}`;
+          tab.addEventListener('click', () => {
+            activePackageIndex = index;
+            tabs.querySelectorAll('[role="tab"]').forEach((item, itemIndex) => item.setAttribute('aria-selected', String(itemIndex === index)));
+            renderActivePackage(tiers[index]);
+            animatePackageTierChange();
+          });
+          return tab;
+        }));
+        activePackageIndex = Math.min(activePackageIndex, tiers.length - 1);
+        tabs.querySelectorAll('[role="tab"]').forEach((tab, index) => tab.setAttribute('aria-selected', String(index === activePackageIndex)));
+        renderActivePackage(tiers[activePackageIndex]);
+      }
+      function renderActivePackage(tier) {
+        const rawItems = Array.isArray(tier.includedItems) ? tier.includedItems : [];
+        activePackage = { ...tier, includedItems: rawItems.map(item => ({
+          ...item,
+          addonPriceInr: Number.isFinite(Number(item.addonPriceInr)) ? Number(item.addonPriceInr) : packageAddonPriceDefaults[item.label] || 0
+        })) };
+        selectedPackageAddonIndexes = new Set();
+        document.getElementById('packageTitle').textContent = activePackage.title || '';
+        document.getElementById('packageDescription').textContent = activePackage.description || '';
+        document.getElementById('packageBasePrice').textContent = packagePriceLabel(activePackage.priceInr);
+        document.getElementById('packageDelivery').textContent = `${activePackage.deliveryDays} day${Number(activePackage.deliveryDays) === 1 ? '' : 's'} delivery`;
+        document.getElementById('packageRevisions').textContent = `${activePackage.revisions} revision${Number(activePackage.revisions) === 1 ? '' : 's'}`;
+        const list = document.getElementById('packageIncludedList');
+        const items = activePackage.includedItems.filter(item => item && typeof item.label === 'string' && item.label.trim());
+        list.replaceChildren(...items.map(item => {
+          const row = document.createElement('div'); row.className = `package-included-row${item.included === false ? ' is-excluded' : ''}`;
+          const mark = document.createElement('span'); mark.className = 'package-included-mark'; mark.textContent = item.included === false ? '×' : '✓';
+          const label = document.createElement('span'); label.textContent = item.label;
+          row.append(mark, label); return row;
+        }));
+        const addonItems = items.map((item, index) => ({ ...item, index })).filter(item => item.included === false);
+        const addonsWrap = document.getElementById('packageAddonsWrap');
+        const addonsList = document.getElementById('packageAddonsList');
+        addonsWrap.classList.toggle('hidden', addonItems.length === 0);
+        document.querySelector('.package-feature-grid')?.classList.toggle('has-addons', addonItems.length > 0);
+        addonsList.replaceChildren(...addonItems.map(item => {
+          const row = document.createElement('label'); row.className = 'package-addon-option';
+          const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'package-addon-checkbox';
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) selectedPackageAddonIndexes.add(item.index);
+            else selectedPackageAddonIndexes.delete(item.index);
+            updatePackageTotal();
+          });
+          const title = document.createElement('span'); title.className = 'package-addon-name'; title.textContent = item.label;
+          const price = document.createElement('strong'); price.textContent = `+${packagePriceLabel(item.addonPriceInr)}`;
+          row.append(checkbox, title, price); return row;
+        }));
+        updatePackageTotal();
+        const button = document.getElementById('packageContinue');
+        button.querySelector('span').textContent = activePackage.buttonLabel || 'Continue';
+      }
+      function animatePackageTierChange() {
+        if (!supportsPortfolioParallax) return;
+        const packageContent = document.querySelector('#packageCard .package-card-content');
+        if (!packageContent) return;
+        packageContent.classList.remove('is-switching');
+        void packageContent.offsetWidth;
+        packageContent.classList.add('is-switching');
+        window.clearTimeout(window.__packageSwitchAnimation);
+        window.__packageSwitchAnimation = window.setTimeout(() => packageContent.classList.remove('is-switching'), 460);
+      }
+      function selectedPackageAddons() {
+        return (Array.isArray(activePackage?.includedItems) ? activePackage.includedItems : [])
+          .map((item, index) => ({ ...item, index }))
+          .filter(item => selectedPackageAddonIndexes.has(item.index));
+      }
+      function updatePackageTotal() {
+        if (!activePackage) return;
+        const extras = selectedPackageAddons().reduce((sum, item) => sum + Math.max(0, Number(item.addonPriceInr) || 0), 0);
+        document.getElementById('packagePrice').textContent = packagePriceLabel((Number(activePackage.priceInr) || 0) + extras);
+      }
+      document.getElementById('packageContinue').addEventListener('click', () => {
+        if (!activePackage) return;
+        const total = (Number(activePackage.priceInr) || 0) + selectedPackageAddons().reduce((sum, item) => sum + Math.max(0, Number(item.addonPriceInr) || 0), 0);
+        const price = packagePriceLabel(total);
+        const tier = `${activePackage.tabLabel || 'Package'} — ${activePackage.title || 'Editing package'}`;
+        const extras = selectedPackageAddons();
+        document.getElementById('clientBudget').value = price;
+        document.getElementById('clientMessage').value = `Hi Rana, I’m interested in the ${tier} package (${price}).${extras.length ? ` Please include these add-ons: ${extras.map(item => item.label).join(', ')}.` : ''} Please let me know the next steps.`;
         document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
-        showToast('Quote attached to Contact Form below!');
+        showToast(`${tier} added to your inquiry.`);
       });
-
-      updateQuoteCalculator();
 
       // --- COPY EMAIL & CONTACT FORM SUBMISSION ---
       document.getElementById('copyEmailBtn').addEventListener('click', () => {
@@ -779,19 +848,70 @@
       });
 
       // Load the content managed in the password-protected admin panel.
-      const routeSections = { services: 'services', pricing: 'calculator', work: 'portfolio', color: 'color-grade', contact: 'contact' };
-      function scrollToRouteSection() {
-        const route = window.location.pathname.split('/').filter(Boolean).pop()?.toLowerCase();
-        const sectionId = routeSections[route];
-        if (sectionId) requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView({ block: 'start' }));
+      const routeSections = { home: 'hero', services: 'services', pricing: 'editing-packages', work: 'portfolio', color: 'color-grade', contact: 'contact' };
+      const sectionRoutes = { hero: 'home', services: 'services', 'editing-packages': 'pricing', portfolio: 'work', 'color-grade': 'color', contact: 'contact' };
+      let publicContentLoaded = false;
+      const routeLinks = [...document.querySelectorAll('.site-main-nav a, #mobileMenuPanel a[href]')];
+      function setActiveNavigation(route) {
+        routeLinks.forEach(link => {
+          const linkRoute = new URL(link.href, window.location.href).pathname.replace(/^\/+|\/+$/g, '').toLowerCase() || 'home';
+          const active = linkRoute === route;
+          link.classList.toggle('is-active', active);
+          if (active) link.setAttribute('aria-current', 'page');
+          else link.removeAttribute('aria-current');
+        });
       }
-      fetch('/api/public/content')
+      let sectionObserver = null;
+      function observeCurrentSection() {
+        sectionObserver?.disconnect();
+        const sections = Object.keys(sectionRoutes).map(id => document.getElementById(id)).filter(section => section && !(section.id === 'editing-packages' && section.classList.contains('hidden')));
+        if (!('IntersectionObserver' in window)) return;
+        sectionObserver = new IntersectionObserver(entries => {
+          const current = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (current) setActiveNavigation(sectionRoutes[current.target.id]);
+        }, { rootMargin: '-24% 0px -62% 0px', threshold: [0, 0.1, 0.25, 0.5] });
+        sections.forEach(section => sectionObserver.observe(section));
+      }
+      observeCurrentSection();
+      setActiveNavigation(window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() || 'home');
+      function scrollToRouteSection() {
+        const route = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() || 'home';
+        let sectionId = routeSections[route];
+        if (route === 'pricing' && document.getElementById('editing-packages')?.classList.contains('hidden')) sectionId = 'contact';
+        setActiveNavigation(sectionId === 'contact' && route === 'pricing' ? 'pricing' : route);
+        if (sectionId) requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
+      window.addEventListener('popstate', scrollToRouteSection);
+      document.querySelectorAll('a[href]').forEach(link => {
+        const target = new URL(link.href, window.location.href);
+        if (target.origin !== window.location.origin) return;
+        const route = target.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() || 'home';
+        if (!routeSections[route]) return;
+        link.addEventListener('click', event => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          const path = `/${route}`;
+          if (window.location.pathname !== path) history.pushState({}, '', path);
+          setActiveNavigation(route);
+          if (route === 'pricing' && !publicContentLoaded && document.getElementById('editing-packages').classList.contains('hidden')) return;
+          scrollToRouteSection();
+          if (route === 'pricing' && !document.getElementById('editing-packages').classList.contains('hidden')) {
+            document.getElementById('editing-packages').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          document.getElementById('mobileMenuPanel')?.classList.remove('is-open');
+          document.getElementById('mobileMenuBtn')?.setAttribute('aria-expanded', 'false');
+        });
+      });
+      fetch('/api/public/content', { cache: 'no-store' })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error('Content unavailable')))
         .then((content) => {
+          renderPackagePicker(content.packageConfig);
+          observeCurrentSection();
+          publicContentLoaded = true;
           const colorPreview = content.colorPreview || {};
-          gradeImages.before = loadGradeImage(colorPreview.beforeImage);
+          gradeImageSources.before = colorPreview.beforeImage || '';
           gradeOptionLabels = Array.from({ length: 4 }, (_, index) => colorPreview.gradeOptions?.[index]?.label || `Graded Image ${index + 1}`);
-          gradeImages.graded = Array.from({ length: 4 }, (_, index) => loadGradeImage(colorPreview.gradeOptions?.[index]?.imageUrl));
+          gradeImageSources.graded = Array.from({ length: 4 }, (_, index) => colorPreview.gradeOptions?.[index]?.imageUrl || '');
           document.querySelectorAll('.grade-option-btn').forEach((button, index) => { button.textContent = gradeOptionLabels[index]; });
           document.getElementById('activeGradeBadge').textContent = gradeOptionLabels[currentGradeIndex];
           const previewText = { colorPreviewEyebrow: colorPreview.eyebrow, colorPreviewTitle: colorPreview.title, colorPreviewDescription: colorPreview.description };
@@ -804,6 +924,17 @@
           nodeTree.title = nodeTreeText;
           nodeTree.classList.toggle('hidden', !nodeTreeText);
           if (Number.isFinite(Number(colorPreview.split))) { colorGradeSlider.value = String(Math.min(100, Math.max(0, Number(colorPreview.split)))); }
+          const colorSection = document.getElementById('color-grade');
+          if ('IntersectionObserver' in window && colorSection) {
+            const colorImageObserver = new IntersectionObserver((entries) => {
+              if (!entries.some((entry) => entry.isIntersecting)) return;
+              loadGradePreviewImages(currentGradeIndex);
+              colorImageObserver.disconnect();
+            }, { rootMargin: '320px 0px' });
+            colorImageObserver.observe(colorSection);
+          } else {
+            loadGradePreviewImages(currentGradeIndex);
+          }
           renderColorGradeComparison();
           document.querySelectorAll('[data-content]').forEach((element) => {
             const value = content[element.dataset.content];
@@ -825,51 +956,6 @@
           document.getElementById('copyrightYear').textContent = new Date().getFullYear();
           const emailCard = document.getElementById('directEmailCard');
           if (content.email) emailCard.classList.remove('hidden');
-          const calculatorControls = document.getElementById('quoteCalculatorControls');
-          const calculatorNotice = document.getElementById('quoteCalculatorNotice');
-          if (content.pricingEnabled) {
-            calculatorControls.classList.remove('hidden');
-            calculatorNotice.classList.add('hidden');
-          }
-          if (content.pricing) {
-            baseRatesInr = content.pricing.baseRatesInr || baseRatesInr;
-            pricingOptions = { ...pricingOptions, ...content.pricing };
-            servicePricing = Object.fromEntries(Object.entries(baseRatesInr).map(([key, legacyRateInr]) => {
-              const configured = content.pricing.serviceRates?.[key] || {};
-              const billingUnit = configured.billingUnit === 'minute' || configured.billingUnit === 'video'
-                ? configured.billingUnit
-                : defaultBillingUnits[key] || 'minute';
-              const legacyRate = billingUnit === 'video'
-                ? configured.rateInr ?? configured.fixedRateInr ?? legacyRateInr
-                : configured.extraMinuteRateInr !== undefined
-                  ? configured.rateInr ?? configured.baseFeeInr ?? configured.fixedRateInr ?? legacyRateInr
-                  : configured.baseFeeInr ?? configured.fixedRateInr ?? legacyRateInr;
-              const serviceRate = {
-                billingUnit,
-                rateInr: legacyRate,
-                extraMinuteRateInr: configured.extraMinuteRateInr ?? (billingUnit === 'minute' ? configured.rateInr ?? content.pricing.perMinuteInr ?? pricingOptions.perMinuteInr : undefined),
-                defaultQuantity: billingUnit === 'video' ? configured.defaultVideos ?? configured.defaultQuantity ?? 1 : 0,
-                motionInr: configured.motionInr ?? content.pricing.motionInr ?? pricingOptions.motionInr,
-                colorInr: configured.colorInr ?? content.pricing.colorInr ?? pricingOptions.colorInr,
-                soundInr: configured.soundInr ?? content.pricing.soundInr ?? pricingOptions.soundInr,
-                rushInr: configured.rushInr ?? content.pricing.rushInr ?? pricingOptions.rushInr,
-                baseIncludes: configured.baseIncludes || ''
-              };
-              const label = configured.label || content.pricing.typeLabels?.[key];
-              if (typeof label === 'string' && label.trim()) {
-                serviceRate.label = label;
-                const option = document.querySelector(`#calcProjectType option[value="${key}"]`);
-                if (option) option.textContent = label;
-              }
-              return [key, serviceRate];
-            }));
-            const selectedService = servicePricing[document.getElementById('calcProjectType').value];
-            const slider = document.getElementById('calcDurationRange');
-            const selectedIsVideo = selectedService?.billingUnit === 'video';
-            slider.min = selectedIsVideo ? '1' : '0';
-            slider.value = selectedIsVideo ? selectedService?.defaultQuantity ?? 1 : 0;
-            updateQuoteCalculator();
-          }
           if (Array.isArray(content.projects)) {
             portfolioProjects = content.projects;
             renderPortfolio();
@@ -931,6 +1017,7 @@
           scrollToRouteSection();
         })
         .catch(() => {
+          publicContentLoaded = true;
           const showreelShell = document.querySelector('.hero-showreel');
           showreelShell?.classList.remove('showreel-pending');
           showreelShell?.setAttribute('aria-busy', 'false');

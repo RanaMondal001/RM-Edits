@@ -3,7 +3,7 @@
   "framework": "fastapi",
   "functions": {
     "app.py": {
-      "includeFiles": "{site-content.json,public/**}",
+      "includeFiles": "{site-content.json,index.html,admin.html,admin.css,admin.js,styles.css,tailwind.config.js,script.js,rm-edits-logo-blue.svg,media/**,public/**}",
       "maxDuration": 60
     }
   }

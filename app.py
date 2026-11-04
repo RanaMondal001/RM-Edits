@@ -24,16 +24,28 @@ from psycopg.types.json import Jsonb
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from vercel import blob
 
-from server import Handler, portfolio_category_for_video, vercel_blob_url_ok, video_url_ok, youtube_video_id
+from server import Handler, portfolio_category_for_video, send_inquiry_notification, vercel_blob_url_ok, video_url_ok, youtube_video_id
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC_DIR = ROOT / "public"
 MEDIA_DIR = PUBLIC_DIR / "media"
-STATIC_FILES = {"index.html", "admin.html", "admin.css", "admin.js", "styles.css", "tailwind.config.js", "script.js", "rm-edits-logo-blue.svg"}
+STATIC_FILES = {"index.html", "admin.html", "admin.css", "admin.js", "styles.css", "tailwind.config.js", "script.js", "rm-edits-logo-blue.svg", "robots.txt", "sitemap.xml"}
 SESSION_COOKIE = "rana_admin_session"
 SESSION_SECONDS = 8 * 60 * 60
 MAX_UPLOAD_CHUNK = 4 * 1024 * 1024
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+
+@app.middleware("http")
+async def add_security_headers(request: WebRequest, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -162,7 +174,7 @@ def public_content(content: dict) -> dict:
         "contactHeading", "contactIntro", "contactEyebrow", "contactDirectLabel", "copyEmailLabel",
         "contactWorkflowTitle", "contactWorkflowDetails", "contactFormTitle", "contactFormBadge",
         "contactSubmitLabel", "contactPrivacyNote", "servicesHeading", "servicesIntro", "services",
-        "showreelVideo", "showreelThumbnail", "showreelYoutubeUrl", "pricingEnabled", "pricing", "projects", "colorPreview"
+        "showreelVideo", "showreelThumbnail", "showreelYoutubeUrl", "pricingEnabled", "pricing", "packageConfig", "projects", "colorPreview"
     )
     return {key: content.get(key) for key in fields}
 
@@ -510,6 +522,10 @@ async def submit_contact(request: WebRequest):
             "INSERT INTO rm_inquiries (id, name, email, project, budget, reference, message) VALUES (%s, %s, %s, %s, %s, %s, %s)",
             (inquiry_id, name, email, project, budget, reference, message),
         )
+    await asyncio.to_thread(send_inquiry_notification, {
+        "name": name, "email": email, "project": project, "budget": budget,
+        "reference": reference, "message": message,
+    })
     return {"ok": True}
 
 
@@ -637,6 +653,8 @@ def get_media(filename: str):
         raise HTTPException(404, "Not found.")
     path = MEDIA_DIR / filename
     if not path.is_file():
+        path = ROOT / "media" / filename
+    if not path.is_file():
         raise HTTPException(404, "Not found.")
     return FileResponse(path)
 
@@ -644,11 +662,15 @@ def get_media(filename: str):
 @app.get("/{asset_path:path}")
 def get_static_file(asset_path: str):
     name = asset_path or "index.html"
+    if name.startswith("public/"):
+        name = name.removeprefix("public/")
     if name.rstrip("/") in {"home", "services", "pricing", "work", "color", "contact"}:
         name = "index.html"
     if name not in STATIC_FILES:
         raise HTTPException(404, "Not found.")
     path = PUBLIC_DIR / name
+    if not path.is_file():
+        path = ROOT / name
     if not path.is_file():
         raise HTTPException(404, "Not found.")
     return FileResponse(path)

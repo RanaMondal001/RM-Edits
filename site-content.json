@@ -13,11 +13,11 @@
   "contactWorkflowTitle": "TURNAROUND & WORKFLOW",
   "contactWorkflowDetails": "• Raw footage transfer via Google Drive, Frame.io, or WeTransfer\n• First draft cut within 48–72 hours with Frame.io timestamped review\n• Revision rounds agreed before editing starts",
   "contactFormTitle": "Send a Project Inquiry",
-  "contactFormBadge": "PRIVATE ADMIN INBOX",
+  "contactFormBadge": "PROJECT INQUIRY FORM",
   "contactSubmitLabel": "Send Brief to Rana Mondal",
   "contactPrivacyNote": "Your contact details and brief are stored privately for Rana to respond. Please do not include passwords or sensitive files.",
-  "servicesHeading": "Editing Services by Rana Mondal",
-  "servicesIntro": "Video editing, motion design, and color grading tailored to your brief, audience, and delivery needs.",
+  "servicesHeading": "Choose Your Editing Service",
+  "servicesIntro": "Explore each service, then choose a package with the deliverables and add-ons that fit your project.",
   "showreelVideo": "/media/showreel.mp4",
   "showreelYoutubeUrl": "",
   "showreelThumbnail": "/media/showreel-thumbnail.jpg",
@@ -58,55 +58,200 @@
         "label": "YouTube Long-Form / Documentary",
         "rateInr": 500,
         "extraMinuteRateInr": 20,
-        "baseIncludes": "Core editing, pacing, and one standard final export.",
         "motionInr": 500,
         "colorInr": 200,
         "soundInr": 200,
-        "rushInr": 500
+        "rushInr": 500,
+        "includedItems": [
+          {
+            "label": "Base editing",
+            "included": true
+          },
+          {
+            "label": "Color grading",
+            "included": true
+          },
+          {
+            "label": "Sound design & mixing",
+            "included": true
+          },
+          {
+            "label": "Motion graphics",
+            "included": false
+          },
+          {
+            "label": "Subtitles",
+            "included": true
+          },
+          {
+            "label": "Thumbnail included",
+            "included": true
+          },
+          {
+            "label": "Include source file",
+            "included": true
+          }
+        ]
       },
       "reels": {
         "billingUnit": "video",
         "label": "Short-Form Reels / Shorts",
         "rateInr": 100,
-        "baseIncludes": "Core editing, pacing, and one standard final export.",
         "defaultQuantity": 1,
         "motionInr": 200,
         "colorInr": 200,
         "soundInr": 200,
-        "rushInr": 500
+        "rushInr": 500,
+        "includedItems": [
+          {
+            "label": "Base editing",
+            "included": true
+          },
+          {
+            "label": "Color grading",
+            "included": true
+          },
+          {
+            "label": "Sound design & mixing",
+            "included": true
+          },
+          {
+            "label": "Motion graphics",
+            "included": true
+          },
+          {
+            "label": "Subtitles",
+            "included": true
+          },
+          {
+            "label": "Thumbnail included",
+            "included": true
+          },
+          {
+            "label": "Include source file",
+            "included": true
+          }
+        ]
       },
       "commercial": {
         "billingUnit": "video",
         "label": "Commercial / Brand Performance Ad",
         "rateInr": 500,
-        "baseIncludes": "Core editing, pacing, and one standard final export.",
         "defaultQuantity": 1,
         "motionInr": 500,
         "colorInr": 200,
         "soundInr": 200,
-        "rushInr": 500
+        "rushInr": 500,
+        "includedItems": [
+          {
+            "label": "Base editing",
+            "included": true
+          },
+          {
+            "label": "Color grading",
+            "included": true
+          },
+          {
+            "label": "Sound design & mixing",
+            "included": true
+          },
+          {
+            "label": "Motion graphics",
+            "included": true
+          },
+          {
+            "label": "Subtitles",
+            "included": true
+          },
+          {
+            "label": "Thumbnail included",
+            "included": true
+          },
+          {
+            "label": "Include source file",
+            "included": true
+          }
+        ]
       },
       "music": {
         "billingUnit": "video",
         "label": "Cinematic Music Video + VFX",
         "rateInr": 2000,
-        "baseIncludes": "Core editing, pacing, and one standard final export.",
         "defaultQuantity": 1,
         "motionInr": 500,
         "colorInr": 200,
         "soundInr": 200,
-        "rushInr": 500
+        "rushInr": 500,
+        "includedItems": [
+          {
+            "label": "Base editing",
+            "included": true
+          },
+          {
+            "label": "Color grading",
+            "included": true
+          },
+          {
+            "label": "Sound design & mixing",
+            "included": true
+          },
+          {
+            "label": "Motion graphics",
+            "included": true
+          },
+          {
+            "label": "Subtitles",
+            "included": true
+          },
+          {
+            "label": "Thumbnail included",
+            "included": true
+          },
+          {
+            "label": "Include source file",
+            "included": true
+          }
+        ]
       },
       "wedding": {
         "billingUnit": "video",
         "label": "Wedding Highlight + Full Ceremony Film",
         "rateInr": 1000,
-        "baseIncludes": "Core editing, pacing, and one standard final export.",
         "defaultQuantity": 1,
         "motionInr": 500,
         "colorInr": 200,
         "soundInr": 200,
-        "rushInr": 500
+        "rushInr": 500,
+        "includedItems": [
+          {
+            "label": "Base editing",
+            "included": true
+          },
+          {
+            "label": "Color grading",
+            "included": true
+          },
+          {
+            "label": "Sound design & mixing",
+            "included": true
+          },
+          {
+            "label": "Motion graphics",
+            "included": true
+          },
+          {
+            "label": "Subtitles",
+            "included": true
+          },
+          {
+            "label": "Thumbnail included",
+            "included": true
+          },
+          {
+            "label": "Include source file",
+            "included": true
+          }
+        ]
       }
     },
     "baseRatesInr": {
@@ -132,39 +277,215 @@
   "services": [
     {
       "title": "YouTube & Documentary Editing",
-      "buttonLabel": "Calculate YouTube Edit",
+      "buttonLabel": "View packages",
       "description": "Story-focused editing, motion graphics, custom maps, captions, and pacing tailored to the creator’s brief."
     },
     {
       "title": "Reels, Shorts & TikToks",
-      "buttonLabel": "Calculate Reels Pack",
+      "buttonLabel": "View packages",
       "description": "Kinetic typography, beat-synced B-roll, clean transitions, sound design, and hook-focused pacing."
     },
     {
       "title": "Commercials & Brand Ads",
-      "buttonLabel": "Calculate Commercial",
+      "buttonLabel": "View packages",
       "description": "Product-focused edits, motion graphics, color grading, and exports for your campaign formats."
     },
     {
       "title": "Music Videos & Wedding Films",
-      "buttonLabel": "Calculate Film Cut",
+      "buttonLabel": "View packages",
       "description": "Multi-camera edits, narrative pacing, color treatment, and sound finishing for your film."
     }
   ],
+  "packageConfig": {
+    "enabled": true,
+    "heading": "Choose your editing package",
+    "intro": "Pick the delivery level that fits your video.",
+    "tiers": [
+      {
+        "tabLabel": "Basic",
+        "title": "Starter Edit",
+        "priceInr": 500,
+        "deliveryDays": 2,
+        "revisions": 1,
+        "buttonLabel": "Continue",
+        "description": "Clean editing for short videos with cuts, music and basic transitions.",
+        "includedItems": [
+          {
+            "label": "Up to 5-10 minutes running time",
+            "included": true,
+            "addonPriceInr": 0
+          },
+          {
+            "label": "Basic Color grading",
+            "included": true,
+            "addonPriceInr": 200
+          },
+          {
+            "label": "Baisc Sound design",
+            "included": true,
+            "addonPriceInr": 100
+          },
+          {
+            "label": "Motion graphics",
+            "included": false,
+            "addonPriceInr": 1000
+          },
+          {
+            "label": "Subtitles",
+            "included": false,
+            "addonPriceInr": 200
+          },
+          {
+            "label": "Thumbnail included",
+            "included": false,
+            "addonPriceInr": 50
+          },
+          {
+            "label": "Include source file",
+            "included": false,
+            "addonPriceInr": 100
+          }
+        ]
+      },
+      {
+        "tabLabel": "Standard",
+        "title": "Pro Edit",
+        "priceInr": 1000,
+        "deliveryDays": 3,
+        "revisions": 2,
+        "buttonLabel": "Continue",
+        "description": "Engaging edit with captions, effects, and color correction.",
+        "includedItems": [
+          {
+            "label": "Up to 10 minutes running time",
+            "included": true,
+            "addonPriceInr": 0
+          },
+          {
+            "label": "Standard Color grading",
+            "included": true,
+            "addonPriceInr": 200
+          },
+          {
+            "label": "Standard Sound design",
+            "included": true,
+            "addonPriceInr": 200
+          },
+          {
+            "label": "Motion graphics",
+            "included": false,
+            "addonPriceInr": 500
+          },
+          {
+            "label": "Subtitles",
+            "included": true,
+            "addonPriceInr": 100
+          },
+          {
+            "label": "Thumbnail included",
+            "included": true,
+            "addonPriceInr": 50
+          },
+          {
+            "label": "Include source file",
+            "included": false,
+            "addonPriceInr": 100
+          }
+        ]
+      },
+      {
+        "tabLabel": "Premium",
+        "title": "Advanced Edit",
+        "priceInr": 1500,
+        "deliveryDays": 5,
+        "revisions": 3,
+        "buttonLabel": "Continue",
+        "description": "Advanced edit with effects, beat sync, sound design and color grading.",
+        "includedItems": [
+          {
+            "label": "Up to 15 minutes of footage provided",
+            "included": true,
+            "addonPriceInr": 0
+          },
+          {
+            "label": "Up to 5 minutes running time",
+            "included": true,
+            "addonPriceInr": 0
+          },
+          {
+            "label": "Color grading",
+            "included": true,
+            "addonPriceInr": 200
+          },
+          {
+            "label": "Sound design & mixing",
+            "included": true,
+            "addonPriceInr": 200
+          },
+          {
+            "label": "Motion graphics",
+            "included": false,
+            "addonPriceInr": 500
+          },
+          {
+            "label": "Subtitles",
+            "included": true,
+            "addonPriceInr": 0
+          },
+          {
+            "label": "Thumbnail included",
+            "included": true,
+            "addonPriceInr": 0
+          },
+          {
+            "label": "Include source file",
+            "included": true,
+            "addonPriceInr": 0
+          }
+        ]
+      }
+    ]
+  },
   "projects": [
     {
       "id": "project-1793537658524",
-      "title": "Zara Zara Bahekta Hai - jalraj | Slowed Reverb |",
-      "category": "music",
-      "categoryLabel": "song",
-      "views": "10M+ Views",
-      "viewsNum": 10000000,
-      "duration": "5m",
-      "tools": "Davinchi Resolve",
+      "title": "শেষ দেখা | Shesh Dekha | Tomas&Arpita |  BISWAS PRODUCTION | Directed by Joy Biswas",
+      "category": "youtube",
+      "categoryLabel": "Short Film/Natok",
+      "views": "1K+ Views",
+      "viewsNum": 1000,
+      "duration": "5:50",
+      "tools": "Thumbnail Design: Adobe Photoshop | Video Editing: DaVinci Resolve | Colour Grading: DaVinci Resolve | Sound Design: DaVinci Resolve Fairlight",
       "accent": "#0051ff",
-      "desc": "this video edited by me",
+      "desc": "A professionally edited video featuring cinematic visuals, refined colour grading, seamless transitions, and a strong focus on visual storytelling.\n\n**Edited & Post-Production: Rana Mondal**",
       "thumbnailUrl": "",
-      "videoUrl": "https://youtu.be/ga1HVaO-n84?si=7hk3NwT1H9S6ilBS"
+      "videoUrl": "https://youtu.be/NrIBnDSeAA8?si=ymeET_9IzfMRYx1A",
+      "toolSelections": {
+        "thumbnailDesign": "Adobe Photoshop",
+        "videoEditing": "DaVinci Resolve",
+        "colourGrading": "DaVinci Resolve",
+        "soundDesign": "DaVinci Resolve Fairlight"
+      }
+    },
+    {
+      "id": "project-1793621710980",
+      "title": "তাহলে কে? | Tahole Ke? | BISWAS PRODUCTION | NEW BENGALI NATOK 2026 | Directed by Joy Biswas",
+      "category": "youtube",
+      "categoryLabel": "Short Film/Natok",
+      "views": "5K+ Views",
+      "viewsNum": 5000,
+      "duration": "4:55",
+      "tools": "Thumbnail Design: Adobe Photoshop | Video Editing: DaVinci Resolve | Colour Grading: DaVinci Resolve | Sound Design: DaVinci Resolve Fairlight",
+      "accent": "#0051ff",
+      "desc": "A professionally edited video featuring cinematic visuals, refined colour grading, seamless transitions, and a strong focus on visual storytelling.\n\n**Edited & Post-Production: Rana Mondal**",
+      "thumbnailUrl": "",
+      "videoUrl": "https://youtu.be/VUdGmcJpVss?si=tgKXcQb-GT7NSNWb",
+      "toolSelections": {
+        "thumbnailDesign": "Adobe Photoshop",
+        "videoEditing": "DaVinci Resolve",
+        "colourGrading": "DaVinci Resolve",
+        "soundDesign": "DaVinci Resolve Fairlight"
+      }
     }
   ]
 }

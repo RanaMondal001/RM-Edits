@@ -6,22 +6,56 @@ import hmac
 import base64
 import binascii
 import json
+import logging
 import os
 import re
 import secrets
+import shutil
+import smtplib
+import ssl
 import threading
 import time
+from email.message import EmailMessage
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from email.utils import formataddr
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent
+
+
+def load_local_env() -> None:
+    """Read ignored local settings without overriding the host environment."""
+    env_path = ROOT / ".env"
+    try:
+        lines = env_path.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if key.startswith("export "):
+            key = key[7:].strip()
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) or key in os.environ:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        os.environ[key] = value
+
+
+load_local_env()
 PRIVATE = ROOT / "private"
 USER_FILE = PRIVATE / "admin-user.json"
 CONTENT_FILE = ROOT / "site-content.json"
 INQUIRIES_FILE = PRIVATE / "inquiries.json"
+BACKUP_DIR = PRIVATE / "backups"
+BACKUP_SOURCES = {CONTENT_FILE, INQUIRIES_FILE}
+BACKUP_RETENTION = 30
 PUBLIC_DIR = ROOT / "public"
 MEDIA_DIR = PUBLIC_DIR / "media"
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -30,7 +64,59 @@ SESSIONS: dict[str, float] = {}
 LOGIN_ATTEMPTS: dict[str, tuple[int, float]] = {}
 CONTACT_ATTEMPTS: dict[str, tuple[int, float]] = {}
 INQUIRY_LOCK = threading.Lock()
-STATIC_FILES = {"index.html", "admin.html", "admin.css", "admin.js", "styles.css", "tailwind.config.js", "script.js", "rm-edits-logo-blue.svg"}
+STATIC_FILES = {"index.html", "admin.html", "admin.css", "admin.js", "styles.css", "tailwind.config.js", "script.js", "rm-edits-logo-blue.svg", "robots.txt", "sitemap.xml"}
+
+
+def send_inquiry_notification(inquiry: dict) -> bool:
+    """Send an optional SMTP alert; email failure never invalidates a saved inquiry."""
+    host = os.environ.get("SMTP_HOST", "").strip()
+    username = os.environ.get("SMTP_USERNAME", "").strip()
+    password = os.environ.get("SMTP_PASSWORD", "").strip().replace(" ", "")
+    recipient = os.environ.get("INQUIRY_NOTIFY_EMAIL", "").strip()
+    sender = os.environ.get("SMTP_FROM_EMAIL", username).strip()
+    if not all((host, username, password, recipient, sender)):
+        return False
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", recipient) or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", sender):
+        logging.getLogger(__name__).warning("Inquiry email alert skipped: sender or recipient email is invalid.")
+        return False
+    try:
+        port = int(os.environ.get("SMTP_PORT", "587"))
+        if not 1 <= port <= 65535:
+            raise ValueError("Invalid SMTP port")
+        safe_name = str(inquiry.get("name", "New client")).replace("\r", " ").replace("\n", " ")
+        reply_email = str(inquiry.get("email", "")).strip()
+        message = EmailMessage()
+        message["Subject"] = "New RM-Edits project inquiry"
+        message["From"] = formataddr(("RM-Edits Website", sender))
+        message["To"] = recipient
+        if re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", reply_email):
+            message["Reply-To"] = formataddr((safe_name, reply_email))
+        message.set_content(
+            "A new project inquiry was submitted on your RM-Edits website.\n\n"
+            f"Name: {safe_name}\n"
+            f"Email: {reply_email}\n"
+            f"Project: {inquiry.get('project') or 'Not specified'}\n"
+            f"Budget: {inquiry.get('budget') or 'Flexible'}\n"
+            f"Reference: {inquiry.get('reference') or 'None'}\n\n"
+            "Project brief:\n"
+            f"{inquiry.get('message', '')}\n"
+        )
+        context = ssl.create_default_context()
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=10, context=context) as client:
+                client.login(username, password)
+                client.send_message(message)
+        else:
+            with smtplib.SMTP(host, port, timeout=10) as client:
+                client.ehlo()
+                client.starttls(context=context)
+                client.ehlo()
+                client.login(username, password)
+                client.send_message(message)
+        return True
+    except (OSError, ValueError, smtplib.SMTPException) as error:
+        logging.getLogger(__name__).warning("Inquiry was saved, but its email alert failed (%s).", type(error).__name__)
+        return False
 
 
 def read_json(path: Path, fallback):
@@ -41,9 +127,24 @@ def read_json(path: Path, fallback):
 
 def write_json(path: Path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path in BACKUP_SOURCES and path.is_file():
+        backup_json_before_write(path)
     temporary = path.with_name(path.name + "." + secrets.token_hex(6) + ".tmp")
     temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
+
+
+def backup_json_before_write(path: Path) -> None:
+    """Keep a bounded local snapshot before changing editable site data."""
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    backup_path = BACKUP_DIR / f"{path.stem}-{timestamp}.json"
+    temporary = backup_path.with_name(backup_path.name + ".tmp")
+    shutil.copy2(path, temporary)
+    temporary.replace(backup_path)
+    backups = sorted(BACKUP_DIR.glob(f"{path.stem}-*.json"), key=lambda item: item.name, reverse=True)
+    for expired in backups[BACKUP_RETENTION:]:
+        expired.unlink(missing_ok=True)
 
 
 def get_content():
@@ -232,6 +333,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         self.send_header("Cache-Control", "no-store")
         for key, value in (headers or {}).items():
             self.send_header(key, value)
@@ -286,11 +389,13 @@ class Handler(BaseHTTPRequestHandler):
             "contactHeading", "contactIntro", "contactEyebrow", "contactDirectLabel", "copyEmailLabel",
             "contactWorkflowTitle", "contactWorkflowDetails", "contactFormTitle", "contactFormBadge",
             "contactSubmitLabel", "contactPrivacyNote", "servicesHeading", "servicesIntro", "services",
-            "showreelVideo", "showreelThumbnail", "showreelYoutubeUrl", "pricingEnabled", "pricing", "projects", "colorPreview"
+            "showreelVideo", "showreelThumbnail", "showreelYoutubeUrl", "pricingEnabled", "pricing", "packageConfig", "projects", "colorPreview"
         )}
 
     def do_GET(self):
         route = urlparse(self.path).path
+        if route.startswith("/public/"):
+            route = route.removeprefix("/public")
         if route.startswith("/media/"):
             media_name = route.removeprefix("/media/")
             if not re.fullmatch(r"(?:color-preview-(?:before|grade-[1-4])\.(?:jpg|png|webp)|showreel\.(?:mp4|webm)|showreel-thumbnail\.(?:jpg|png|webp))", media_name):
@@ -337,7 +442,7 @@ class Handler(BaseHTTPRequestHandler):
         file_path = PUBLIC_DIR / name
         if not file_path.is_file():
             return self.reply(404, "Not found.", "text/plain; charset=utf-8")
-        mime = "image/svg+xml" if name.endswith(".svg") else "text/html; charset=utf-8" if name.endswith(".html") else "text/css; charset=utf-8" if name.endswith(".css") else "text/javascript; charset=utf-8"
+        mime = "image/svg+xml" if name.endswith(".svg") else "text/html; charset=utf-8" if name.endswith(".html") else "text/css; charset=utf-8" if name.endswith(".css") else "text/plain; charset=utf-8" if name.endswith(".txt") else "application/xml; charset=utf-8" if name.endswith(".xml") else "text/javascript; charset=utf-8"
         return self.reply(200, file_path.read_bytes(), mime)
 
     def do_POST(self):
@@ -371,9 +476,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(400, {"error": "Please check the project type, budget, or reference link."})
             with INQUIRY_LOCK:
                 entries = read_json(INQUIRIES_FILE, [])
-                entries.insert(0, {"id": secrets.token_hex(8), "name": name, "email": email, "project": project, "budget": budget or "Flexible", "reference": reference, "message": message, "createdAt": datetime.now(timezone.utc).isoformat()})
+                inquiry = {"id": secrets.token_hex(8), "name": name, "email": email, "project": project, "budget": budget or "Flexible", "reference": reference, "message": message, "createdAt": datetime.now(timezone.utc).isoformat()}
+                entries.insert(0, inquiry)
                 write_json(INQUIRIES_FILE, entries[:1000])
             CONTACT_ATTEMPTS[key] = (count + 1, start)
+            send_inquiry_notification(inquiry)
             return self.reply(201, {"ok": True})
         if route == "/api/admin/video-metadata":
             if not self.authenticated():
@@ -512,6 +619,42 @@ class Handler(BaseHTTPRequestHandler):
             return "Choose a valid showreel video file."
         if not isinstance(data.get("pricingEnabled"), bool):
             return "Check whether the quote calculator should be shown."
+        package_config = data.get("packageConfig")
+        if not isinstance(package_config, dict) or not isinstance(package_config.get("enabled"), bool):
+            return "Check whether editing packages should be shown."
+        if any(not isinstance(package_config.get(field), str) or len(package_config[field]) > limit for field, limit in (("heading", 120), ("intro", 500))):
+            return "Check the editing package heading and introduction."
+        package_tiers = package_config.get("tiers")
+        if not isinstance(package_tiers, list) or len(package_tiers) != 3:
+            return "Keep three editing packages: Basic, Standard, and Premium."
+        for tier in package_tiers:
+            if not isinstance(tier, dict):
+                return "Check each editing package."
+            for field, limit in (("tabLabel", 40), ("title", 100), ("description", 500), ("buttonLabel", 60)):
+                if not isinstance(tier.get(field), str) or not tier[field].strip() or len(tier[field]) > limit:
+                    return "Check the name, description, and button text for each editing package."
+            price = tier.get("priceInr")
+            if not isinstance(price, (int, float)) or isinstance(price, bool) or not 0 <= price <= 10000000:
+                return "Package prices must be numbers from 0 to 10,000,000 INR."
+            days = tier.get("deliveryDays")
+            revisions = tier.get("revisions")
+            if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 90:
+                return "Package delivery time must be between 1 and 90 days."
+            if not isinstance(revisions, int) or isinstance(revisions, bool) or not 0 <= revisions <= 100:
+                return "Package revisions must be from 0 to 100."
+            items = tier.get("includedItems")
+            if not isinstance(items, list) or len(items) > 20 or any(
+                not isinstance(item, dict)
+                or not isinstance(item.get("label"), str)
+                or not item["label"].strip()
+                or len(item["label"]) > 120
+                or not isinstance(item.get("included"), bool)
+                or not isinstance(item.get("addonPriceInr", 0), (int, float))
+                or isinstance(item.get("addonPriceInr", 0), bool)
+                or not 0 <= item.get("addonPriceInr", 0) <= 1000000
+                for item in items
+            ):
+                return "Each package can have up to 20 named checklist items with add-on prices from 0 to 1,000,000 INR."
         preview = data.get("colorPreview", {})
         if not isinstance(preview, dict):
             return "Check the color preview settings."
@@ -568,6 +711,16 @@ class Handler(BaseHTTPRequestHandler):
                 return "Each estimator service needs a name of 1 to 100 characters."
             if not isinstance(config.get("baseIncludes", ""), str) or len(config.get("baseIncludes", "")) > 1200:
                 return "Describe the base project scope in 1,200 characters or fewer."
+            included_items = config.get("includedItems", [])
+            if not isinstance(included_items, list) or len(included_items) > 20 or any(
+                not isinstance(item, dict)
+                or not isinstance(item.get("label"), str)
+                or not item["label"].strip()
+                or len(item["label"]) > 120
+                or not isinstance(item.get("included"), bool)
+                for item in included_items
+            ):
+                return "Add up to 20 checklist items with a name and included status for each service."
             if config.get("billingUnit") not in {"minute", "video"}:
                 return "Choose whether each estimator service is charged per minute or per video."
             price_fields = ["rateInr", "motionInr", "colorInr", "soundInr", "rushInr"]

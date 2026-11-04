@@ -9,7 +9,7 @@
   const contentForm = document.getElementById('contentForm');
   const projectsEditor = document.getElementById('projectsEditor');
   const servicesEditor = document.getElementById('servicesEditor');
-  const estimatorServicesEditor = document.getElementById('estimatorServicesEditor');
+  const packagesEditor = document.getElementById('packagesEditor');
   const gradeImagesEditor = document.getElementById('gradeImagesEditor');
   const showreelVideoInput = document.getElementById('showreelVideoInput');
   const showreelThumbnailInput = document.getElementById('showreelThumbnailInput');
@@ -24,16 +24,37 @@
   let isVercelDeployment = false;
   let projects = [];
   let services = [];
-  let estimatorServices = {};
   let gradeImageConfig = { beforeImage: '', gradeOptions: [] };
   let showreelVideoConfig = '';
   let showreelThumbnailConfig = '';
-  const estimatorServiceDefaults = {
-    youtube: { label: 'YouTube Long-Form / Documentary', billingUnit: 'minute', rateInr: 4500, extraMinuteRateInr: 350, defaultQuantity: 0, baseIncludes: 'Core editing, pacing, and one standard final export.', motionInr: 2000, colorInr: 1500, soundInr: 1200, rushInr: 2500 },
-    reels: { label: 'Short-Form Reels / Shorts', billingUnit: 'video', rateInr: 5500, extraMinuteRateInr: 350, defaultQuantity: 1, baseIncludes: 'Core editing, pacing, and one standard final export.', motionInr: 2000, colorInr: 1500, soundInr: 1200, rushInr: 2500 },
-    commercial: { label: 'Commercial / Brand Performance Ad', billingUnit: 'video', rateInr: 7500, extraMinuteRateInr: 350, defaultQuantity: 1, baseIncludes: 'Core editing, pacing, and one standard final export.', motionInr: 2000, colorInr: 1500, soundInr: 1200, rushInr: 2500 },
-    music: { label: 'Cinematic Music Video + VFX', billingUnit: 'video', rateInr: 9000, extraMinuteRateInr: 350, defaultQuantity: 1, baseIncludes: 'Core editing, pacing, and one standard final export.', motionInr: 2000, colorInr: 1500, soundInr: 1200, rushInr: 2500 },
-    wedding: { label: 'Wedding Highlight + Full Ceremony Film', billingUnit: 'video', rateInr: 12000, extraMinuteRateInr: 350, defaultQuantity: 1, baseIncludes: 'Core editing, pacing, and one standard final export.', motionInr: 2000, colorInr: 1500, soundInr: 1200, rushInr: 2500 }
+  let pricingEnabledSnapshot = false;
+  let pricingSnapshot = null;
+  const packageAddonPriceDefaults = { 'Color grading': 200, 'Sound design & mixing': 200, 'Motion graphics': 500, Subtitles: 0, 'Thumbnail included': 0, 'Include source file': 0 };
+  const packageDeliverables = [
+    { label: 'Up to 15 minutes of footage provided', included: true, addonPriceInr: 0 },
+    { label: 'Up to 5 minutes running time', included: true, addonPriceInr: 0 },
+    { label: 'Color grading', included: true, addonPriceInr: 200 },
+    { label: 'Sound design & mixing', included: false, addonPriceInr: 200 },
+    { label: 'Motion graphics', included: false, addonPriceInr: 500 },
+    { label: 'Subtitles', included: true, addonPriceInr: 0 },
+    { label: 'Thumbnail included', included: true, addonPriceInr: 0 },
+    { label: 'Include source file', included: true, addonPriceInr: 0 }
+  ];
+  const projectToolCategories = [
+    { key: 'thumbnailDesign', label: 'Thumbnail Design', options: ['Adobe Photoshop', 'Canva', 'Adobe Illustrator'], default: 'Adobe Photoshop' },
+    { key: 'videoEditing', label: 'Video Editing', options: ['Adobe Premiere Pro', 'DaVinci Resolve', 'Final Cut Pro'], default: 'DaVinci Resolve' },
+    { key: 'colourGrading', label: 'Colour Grading', options: ['DaVinci Resolve', 'Adobe Premiere Pro', 'Adobe After Effects'], default: 'DaVinci Resolve' },
+    { key: 'soundDesign', label: 'Sound Design', options: ['Adobe Audition', 'DaVinci Resolve Fairlight', 'Audacity'], default: 'Adobe Audition' }
+  ];
+  const defaultPackageConfig = {
+    enabled: true,
+    heading: 'Choose your editing package',
+    intro: 'Pick the delivery level that fits your video.',
+    tiers: [
+      { tabLabel: 'Basic', title: 'Starter Edit', priceInr: 497.62, description: 'Clean editing for short videos with cuts, music and basic transitions.', deliveryDays: 1, revisions: 1, buttonLabel: 'Continue', includedItems: packageDeliverables.map(item => ({ ...item })) },
+      { tabLabel: 'Standard', title: 'Pro Edit', priceInr: 995.24, description: 'Engaging edit with captions, effects, sound design and color correction.', deliveryDays: 2, revisions: 2, buttonLabel: 'Continue', includedItems: packageDeliverables.map(item => ({ ...item, included: item.label !== 'Motion graphics' })) },
+      { tabLabel: 'Premium', title: 'Advanced Edit', priceInr: 1492.86, description: 'Advanced edit with effects, beat sync, sound design and color grading.', deliveryDays: 3, revisions: 3, buttonLabel: 'Continue', includedItems: packageDeliverables.map(item => ({ ...item, included: true })) }
+    ]
   };
 
   async function api(url, options = {}) {
@@ -130,7 +151,22 @@
       fetchTitle.addEventListener('click', fetchVideoTitle);
       videoField.querySelector('input').addEventListener('change', () => { if (videoField.querySelector('input').value.trim()) fetchVideoTitle(); });
       videoActions.append(fetchTitle, videoStatus);
-      grid.append(nameField, category, field('Category label', 'categoryLabel', project.categoryLabel), viewsField, field('Duration', 'duration', project.duration), field('Tools used', 'tools', project.tools), videoField, videoActions, field('Description', 'desc', project.desc, true));
+      const toolsEditor = document.createElement('div'); toolsEditor.className = 'included-items-editor tools-used-editor wide';
+      const toolsHeading = document.createElement('div'); toolsHeading.className = 'included-items-heading';
+      const toolsTitle = document.createElement('strong'); toolsTitle.textContent = 'Tools & software used';
+      const toolsHelp = document.createElement('span'); toolsHelp.textContent = 'Choose the software used for each part of this project.';
+      toolsHeading.append(toolsTitle, toolsHelp);
+      const toolsGrid = document.createElement('div'); toolsGrid.className = 'grid tools-select-grid';
+      const selectedTools = project.toolSelections && typeof project.toolSelections === 'object' ? project.toolSelections : {};
+      projectToolCategories.forEach(tool => {
+        const label = document.createElement('label'); label.className = 'project-field'; label.append(document.createTextNode(tool.label));
+        const select = document.createElement('select'); select.name = `tool_${tool.key}`;
+        tool.options.forEach(optionText => { const option = document.createElement('option'); option.value = optionText; option.textContent = optionText; select.append(option); });
+        select.value = tool.options.includes(selectedTools[tool.key]) ? selectedTools[tool.key] : tool.default;
+        label.append(select); toolsGrid.append(label);
+      });
+      toolsEditor.append(toolsHeading, toolsGrid);
+      grid.append(nameField, category, field('Category label', 'categoryLabel', project.categoryLabel), viewsField, field('Duration', 'duration', project.duration), videoField, videoActions, toolsEditor, field('Description', 'desc', project.desc, true));
       card.append(grid); projectsEditor.append(card);
     });
     if (!projects.length) {
@@ -220,65 +256,66 @@
       card.append(grid); servicesEditor.append(card);
     });
   }
-  function renderEstimatorServices() {
-    estimatorServicesEditor.replaceChildren();
-    Object.entries(estimatorServices).forEach(([type, config]) => {
-      const card = document.createElement('article'); card.className = 'project-card'; card.dataset.estimatorService = type;
-      const heading = document.createElement('div'); heading.className = 'project-heading';
-      const title = document.createElement('h3'); title.textContent = config.label || type; heading.append(title); card.append(heading);
-      const grid = document.createElement('div'); grid.className = 'grid';
-      const add = (key, label, value, inputType = 'number') => {
-        const wrapper = field(label, `estimator_${type}_${key}`, value, false, true, inputType);
-        wrapper.dataset.estimatorFieldWrapper = key;
-        const input = wrapper.querySelector('input'); input.dataset.estimatorField = key;
-        if (inputType === 'number') { input.min = key === 'defaultQuantity' ? '1' : '0'; input.max = key === 'defaultQuantity' ? '30' : '10000000'; input.step = '1'; }
-        else input.maxLength = 100;
+  function renderPackages(tiers) {
+    packagesEditor.replaceChildren();
+    tiers.forEach((tier, index) => {
+      const card = document.createElement('details'); card.className = 'project-card package-admin-card'; card.dataset.packageTier = String(index);
+      const summary = document.createElement('summary'); summary.className = 'estimator-service-summary';
+      const heading = document.createElement('h3'); heading.textContent = `${tier.tabLabel || `Tier ${index + 1}`} · ${tier.title || 'Package'}`;
+      const hint = document.createElement('span'); hint.className = 'estimator-service-hint'; hint.textContent = 'Edit package';
+      const chevron = document.createElement('span'); chevron.className = 'accordion-chevron'; chevron.setAttribute('aria-hidden', 'true'); chevron.textContent = '⌄';
+      summary.append(heading, hint, chevron); card.append(summary);
+      card.addEventListener('toggle', () => {
+        if (card.open) packagesEditor.querySelectorAll('.package-admin-card').forEach(other => { if (other !== card) other.open = false; });
+      });
+      const body = document.createElement('div'); body.className = 'estimator-service-body';
+      const grid = document.createElement('div'); grid.className = 'grid package-admin-fields';
+      const addField = (key, label, value, type = 'text', wide = false) => {
+        const wrapper = field(label, `package_${index}_${key}`, value, key === 'description', true, type);
+        if (wide) wrapper.classList.add('wide');
+        const input = wrapper.querySelector('input, textarea'); input.dataset.packageField = key;
+        if (type === 'number') {
+          input.min = key === 'deliveryDays' ? '1' : key === 'revisions' ? '0' : '0';
+          input.max = key === 'priceInr' ? '10000000' : key === 'deliveryDays' ? '90' : '100';
+          input.step = key === 'priceInr' ? '0.01' : '1';
+        }
         grid.append(wrapper);
       };
-      const unitWrapper = document.createElement('label'); unitWrapper.className = 'project-field'; unitWrapper.dataset.estimatorFieldWrapper = 'billingUnit'; unitWrapper.append(document.createTextNode('Billing basis'));
-      const unitSelect = document.createElement('select'); unitSelect.name = `estimator_${type}_billingUnit`; unitSelect.dataset.estimatorField = 'billingUnit'; unitSelect.className = 'estimator-unit-select';
-      [['minute', 'Per minute'], ['video', 'Per video']].forEach(([value, label]) => {
-        const option = document.createElement('option'); option.value = value; option.textContent = label; unitSelect.append(option);
-      });
-      unitSelect.value = config.billingUnit === 'video' ? 'video' : 'minute'; unitWrapper.append(unitSelect); grid.append(unitWrapper);
-      add('label', 'Service name in estimator', config.label, 'text');
-      add('rateInr', 'Service rate (INR)', config.rateInr);
-      add('extraMinuteRateInr', 'Each added minute (INR)', config.extraMinuteRateInr);
-      const includes = field('What the base project includes', `estimator_${type}_baseIncludes`, config.baseIncludes || '', true, false);
-      includes.dataset.estimatorFieldWrapper = 'baseIncludes';
-      includes.querySelector('textarea').dataset.estimatorField = 'baseIncludes';
-      includes.querySelector('textarea').placeholder = 'Describe the work included in the base project';
-      grid.append(includes);
-      add('defaultQuantity', 'Default number of videos', config.defaultQuantity);
-      add('motionInr', 'Motion graphics add-on (INR)', config.motionInr);
-      add('colorInr', 'Color grading add-on (INR)', config.colorInr);
-      add('soundInr', 'Sound design add-on (INR)', config.soundInr);
-      add('rushInr', 'Rush delivery add-on (INR)', config.rushInr);
-      card.append(grid);
-      const updateUnitFields = () => {
-        const isVideo = unitSelect.value === 'video';
-        const setLabel = (key, text) => { const wrapper = card.querySelector(`[data-estimator-field-wrapper="${key}"]`); wrapper.firstChild.textContent = text; };
-        const minuteRate = card.querySelector('[data-estimator-field-wrapper="extraMinuteRateInr"]');
-        const videoCount = card.querySelector('[data-estimator-field-wrapper="defaultQuantity"]');
-        minuteRate.classList.toggle('hidden', isVideo);
-        minuteRate.querySelector('input').disabled = isVideo;
-        videoCount.classList.toggle('hidden', !isVideo);
-        videoCount.querySelector('input').disabled = !isVideo;
-        setLabel('rateInr', isVideo ? 'Rate per video (INR)' : 'Base fee per project (INR)');
-        setLabel('baseIncludes', isVideo ? 'What each video rate includes' : 'What the base project includes');
-        setLabel('extraMinuteRateInr', 'Each added minute (INR)');
-        setLabel('defaultQuantity', 'Default number of videos');
-        setLabel('motionInr', isVideo ? 'Motion graphics add-on per video (INR)' : 'Motion graphics add-on per project (INR)');
-        setLabel('colorInr', isVideo ? 'Color grading add-on per video (INR)' : 'Color grading add-on per project (INR)');
-        setLabel('soundInr', isVideo ? 'Sound design add-on per video (INR)' : 'Sound design add-on per project (INR)');
-        setLabel('rushInr', isVideo ? 'Rush delivery add-on per video (INR)' : 'Rush delivery add-on per project (INR)');
+      addField('tabLabel', 'Tab name', tier.tabLabel);
+      addField('title', 'Package title', tier.title);
+      addField('priceInr', 'Price (INR)', tier.priceInr, 'number');
+      addField('deliveryDays', 'Delivery time (days)', tier.deliveryDays, 'number');
+      addField('revisions', 'Revision rounds', tier.revisions, 'number');
+      addField('buttonLabel', 'Button text', tier.buttonLabel);
+      addField('description', 'Package description', tier.description, 'text', true);
+      const updateHeading = () => { heading.textContent = `${card.querySelector('[data-package-field="tabLabel"]').value || `Tier ${index + 1}`} · ${card.querySelector('[data-package-field="title"]').value || 'Package'}`; };
+      card.querySelectorAll('[data-package-field="tabLabel"], [data-package-field="title"]').forEach(input => input.addEventListener('input', updateHeading));
+      const includedEditor = document.createElement('div'); includedEditor.className = 'included-items-editor package-included-editor';
+      const titleRow = document.createElement('div'); titleRow.className = 'included-items-heading';
+      const titleText = document.createElement('strong'); titleText.textContent = 'What’s included in this package';
+      const help = document.createElement('span'); help.textContent = 'These rows appear in the package card. Check a row to show it as included.';
+      titleRow.append(titleText, help);
+      const list = document.createElement('div'); list.className = 'included-items-list';
+      const addItem = (item = {}) => {
+        if (list.children.length >= 20) return;
+        const row = document.createElement('div'); row.className = 'included-item-row package-item-row';
+        const name = document.createElement('input'); name.type = 'text'; name.maxLength = 120; name.value = item.label || ''; name.placeholder = 'e.g. Color grading'; name.dataset.packageItemLabel = 'true'; name.setAttribute('aria-label', 'Package feature');
+        const toggleLabel = document.createElement('label'); toggleLabel.className = 'included-item-toggle';
+        const toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.checked = item.included !== false; toggle.dataset.packageItemIncluded = 'true'; toggle.setAttribute('aria-label', 'Included in package');
+        const toggleText = document.createElement('span'); toggleText.textContent = toggle.checked ? 'Included in package' : 'Not included';
+        const addonPrice = document.createElement('label'); addonPrice.className = 'package-item-addon'; addonPrice.classList.toggle('hidden', toggle.checked); addonPrice.append(document.createTextNode('Add-on (INR) '));
+        const addonPriceInput = document.createElement('input'); addonPriceInput.type = 'number'; addonPriceInput.min = '0'; addonPriceInput.max = '1000000'; addonPriceInput.step = '0.01'; addonPriceInput.value = Number(item.addonPriceInr) || 0; addonPriceInput.dataset.packageItemAddonPrice = 'true'; addonPriceInput.setAttribute('aria-label', `Add-on price for ${item.label || 'package item'}`); addonPrice.append(addonPriceInput);
+        toggle.addEventListener('change', () => { toggleText.textContent = toggle.checked ? 'Included in package' : 'Not included'; addonPrice.classList.toggle('hidden', toggle.checked); });
+        toggleLabel.append(toggle, toggleText);
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button secondary included-item-remove'; remove.textContent = 'Remove';
+        remove.addEventListener('click', () => { row.remove(); addButton.disabled = list.children.length >= 20; });
+        row.append(name, toggleLabel, addonPrice, remove); list.append(row); addButton.disabled = list.children.length >= 20;
       };
-      unitSelect.addEventListener('change', () => {
-        card.querySelector('[data-estimator-field="defaultQuantity"]').value = unitSelect.value === 'video' ? 1 : 0;
-        updateUnitFields();
-      });
-      updateUnitFields();
-      estimatorServicesEditor.append(card);
+      const addButton = document.createElement('button'); addButton.type = 'button'; addButton.className = 'button secondary included-item-add'; addButton.textContent = '+ Add package item';
+      addButton.addEventListener('click', () => addItem());
+      (Array.isArray(tier.includedItems) ? tier.includedItems : []).forEach(addItem);
+      includedEditor.append(titleRow, list, addButton); grid.append(includedEditor);
+      body.append(grid); card.append(body); packagesEditor.append(card);
     });
   }
   async function loadContent() {
@@ -306,30 +343,22 @@
     for (const [key, fallback] of Object.entries({ colorPreviewEyebrow: 'Illustrative Color Demo', colorPreviewTitle: 'Interactive Color Look Preview', colorPreviewDescription: 'This interactive color-look demo is illustrative artwork, not a before-and-after from a client project.', colorPreviewBeforeLabel: 'FLAT S-LOG3 RAW', colorPreviewAfterLabel: 'RANA MASTER GRADE', colorPreviewSplit: 55, colorPreviewNodeTree: 'NODE_TREE: CST → EXPOSURE → SKIN_TONE_QUALIFIER → FILM_PRINT' })) contentForm.elements[key].value = preview[key.replace('colorPreview', '').replace(/^./, char => char.toLowerCase())] ?? fallback;
     contentForm.elements.colorPreviewSplit.min = '0'; contentForm.elements.colorPreviewSplit.max = '100';
     renderGradeImages(preview);
-    contentForm.elements.pricingEnabled.checked = Boolean(data.pricingEnabled);
-    contentForm.elements.usdRate.value = data.pricing?.usdRate ?? 82;
-    estimatorServices = Object.fromEntries(Object.entries(estimatorServiceDefaults).map(([key, fallback]) => {
-      const current = data.pricing?.serviceRates?.[key] || {};
-      const billingUnit = current.billingUnit === 'video' || current.billingUnit === 'minute' ? current.billingUnit : fallback.billingUnit;
-      const legacyRate = billingUnit === 'video'
-        ? current.rateInr ?? current.fixedRateInr ?? data.pricing?.baseRatesInr?.[key] ?? fallback.rateInr
-        : current.rateInr !== undefined && current.extraMinuteRateInr !== undefined
-          ? current.rateInr
-          : current.fixedRateInr ?? data.pricing?.baseRatesInr?.[key] ?? fallback.rateInr;
-      return [key, {
-        label: current.label || data.pricing?.typeLabels?.[key] || fallback.label,
-        billingUnit,
-        rateInr: legacyRate,
-        baseIncludes: current.baseIncludes || fallback.baseIncludes || '',
-        extraMinuteRateInr: current.extraMinuteRateInr ?? (billingUnit === 'minute' ? current.rateInr ?? data.pricing?.perMinuteInr : undefined) ?? fallback.extraMinuteRateInr,
-        defaultQuantity: billingUnit === 'video' ? current.defaultVideos ?? current.defaultQuantity ?? 1 : 0,
-        motionInr: current.motionInr ?? data.pricing?.motionInr ?? fallback.motionInr,
-        colorInr: current.colorInr ?? data.pricing?.colorInr ?? fallback.colorInr,
-        soundInr: current.soundInr ?? data.pricing?.soundInr ?? fallback.soundInr,
-        rushInr: current.rushInr ?? data.pricing?.rushInr ?? fallback.rushInr
-      }];
-    }));
-    renderEstimatorServices();
+    pricingEnabledSnapshot = Boolean(data.pricingEnabled);
+    pricingSnapshot = data.pricing || pricingSnapshot;
+    const packageConfig = data.packageConfig && typeof data.packageConfig === 'object'
+      ? data.packageConfig
+      : defaultPackageConfig;
+    contentForm.elements.packagesEnabled.checked = packageConfig.enabled !== false;
+    contentForm.elements.packageHeading.value = packageConfig.heading || defaultPackageConfig.heading;
+    contentForm.elements.packageIntro.value = packageConfig.intro || defaultPackageConfig.intro;
+    const packageTiers = Array.isArray(packageConfig.tiers) && packageConfig.tiers.length === 3
+      ? packageConfig.tiers
+      : defaultPackageConfig.tiers;
+    renderPackages(packageTiers.map((tier, index) => ({
+      ...defaultPackageConfig.tiers[index],
+      ...tier,
+      includedItems: Array.isArray(tier.includedItems) ? tier.includedItems : defaultPackageConfig.tiers[index].includedItems
+    })));
     projects = data.projects || []; renderProjects();
     services = data.services || []; renderServices();
     await loadInquiries();
@@ -355,7 +384,7 @@
     });
   }
   document.getElementById('addProjectBtn').addEventListener('click', () => {
-    projects.push({ id: `project-${Date.now()}`, title: '', category: 'commercial', categoryLabel: 'Commercial Ad', views: '', viewsNum: 0, duration: '', tools: '', accent: '#0051ff', desc: '', thumbnailUrl: '', videoUrl: '' }); renderProjects();
+    projects.push({ id: `project-${Date.now()}`, title: '', category: 'commercial', categoryLabel: 'Commercial Ad', views: '', viewsNum: 0, duration: '', tools: '', accent: '#0051ff', desc: 'A professionally edited video featuring cinematic visuals, refined colour grading, seamless transitions, and a strong focus on visual storytelling.\n\nEdited & Post-Production: Rana Mondal', thumbnailUrl: '', videoUrl: '' }); renderProjects();
     projectsEditor.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
   showreelVideoInput.addEventListener('change', () => {
@@ -448,29 +477,23 @@
       }
       if (card.querySelector('[data-remove-image]')?.checked) data.colorPreview.removeImages.push(key);
     }
-    data.pricingEnabled = contentForm.elements.pricingEnabled.checked;
-    const serviceRates = Object.fromEntries([...estimatorServicesEditor.querySelectorAll('.project-card')].map(card => {
-      const config = Object.fromEntries([...card.querySelectorAll('[data-estimator-field]')].map(input => [
-        input.dataset.estimatorField,
-        input.type === 'number' ? Number(input.value) : input.value.trim()
-      ]));
-      config.billingUnit = card.querySelector('[data-estimator-field="billingUnit"]').value;
-      if (config.billingUnit === 'video') delete config.extraMinuteRateInr;
-      else delete config.defaultQuantity;
-      return [card.dataset.estimatorService, config];
-    }));
-    data.pricing = {
-      usdRate: Number(contentForm.elements.usdRate.value),
-      serviceRates,
-      baseRatesInr: Object.fromEntries(Object.entries(serviceRates).map(([key, config]) => [key, config.rateInr])),
-      perMinuteInr: serviceRates.youtube.extraMinuteRateInr ?? Object.values(serviceRates).find(config => config.extraMinuteRateInr !== undefined)?.extraMinuteRateInr ?? 0,
-      motionInr: serviceRates.youtube.motionInr,
-      colorInr: serviceRates.youtube.colorInr,
-      soundInr: serviceRates.youtube.soundInr,
-      rushInr: serviceRates.youtube.rushInr,
-      typeLabels: Object.fromEntries(Object.entries(serviceRates).map(([key, config]) => [key, config.label]))
-    };
+    data.pricingEnabled = pricingEnabledSnapshot;
+    data.pricing = pricingSnapshot;
     data.services = [...servicesEditor.querySelectorAll('.project-card')].map(card => Object.fromEntries([...card.querySelectorAll('[name]')].map(input => [input.name, input.value.trim()])));
+    data.packageConfig = {
+      enabled: contentForm.elements.packagesEnabled.checked,
+      heading: contentForm.elements.packageHeading.value.trim(),
+      intro: contentForm.elements.packageIntro.value.trim(),
+      tiers: [...packagesEditor.querySelectorAll('[data-package-tier]')].map(card => {
+        const tier = Object.fromEntries([...card.querySelectorAll('[data-package-field]')].map(input => [input.dataset.packageField, input.type === 'number' ? Number(input.value) : input.value.trim()]));
+        tier.includedItems = [...card.querySelectorAll('[data-package-item-label]')].map(input => ({
+          label: input.value.trim(),
+          included: input.closest('.included-item-row')?.querySelector('[data-package-item-included]')?.checked === true,
+          addonPriceInr: Number(input.closest('.included-item-row')?.querySelector('[data-package-item-addon-price]')?.value) || 0
+        })).filter(item => item.label);
+        return tier;
+      })
+    };
     const parseViews = value => {
       const match = String(value).replace(/,/g, '').match(/([\d.]+)\s*(m|k)?/i);
       if (!match) return 0;
@@ -479,7 +502,10 @@
     data.projects = [...projectsEditor.querySelectorAll('.project-card')].map((card, index) => {
       const values = Object.fromEntries([...card.querySelectorAll('[name]')].map(input => [input.name, input.value.trim()]));
       const original = projects.find(project => project.id === card.dataset.projectId) || {};
-      return { ...original, ...values, id: original.id || `project-${Date.now()}-${index}`, viewsNum: parseViews(values.views) };
+      const toolSelections = Object.fromEntries(projectToolCategories.map(tool => [tool.key, values[`tool_${tool.key}`] || tool.default]));
+      projectToolCategories.forEach(tool => { delete values[`tool_${tool.key}`]; });
+      const tools = projectToolCategories.map(tool => `${tool.label}: ${toolSelections[tool.key]}`).join(' | ');
+      return { ...original, ...values, tools, toolSelections, id: original.id || `project-${Date.now()}-${index}`, viewsNum: parseViews(values.views) };
     });
     try {
       await api('/api/admin/content', { method: 'PUT', body: JSON.stringify(data) });
@@ -498,12 +524,19 @@
     try { await loadInquiries(); }
     catch (error) { setMessage(document.getElementById('saveMessage'), error.message, true); }
   });
-  const adminSectionLinks = [...document.querySelectorAll('.admin-section-nav a, .dashboard-shortcuts a')];
+  const adminSectionLinks = [...document.querySelectorAll('.admin-section-nav a')];
+  document.querySelectorAll('.admin-accordion').forEach(panel => panel.addEventListener('toggle', () => {
+    if (panel.open) document.querySelectorAll('.admin-accordion').forEach(other => {
+      if (other !== panel) other.open = false;
+    });
+  }));
   adminSectionLinks.forEach(link => link.addEventListener('click', event => {
     event.preventDefault();
     const target = document.querySelector(link.getAttribute('href'));
     if (!target) return;
-    if (target instanceof HTMLDetailsElement) target.open = true;
+    if (target instanceof HTMLDetailsElement) {
+      document.querySelectorAll('.admin-accordion').forEach(panel => { panel.open = panel === target; });
+    } else document.querySelectorAll('.admin-accordion').forEach(panel => { panel.open = false; });
     history.replaceState(null, '', link.getAttribute('href'));
     document.querySelectorAll('.admin-section-nav a').forEach(sideLink => {
       if (sideLink.hash === link.hash) sideLink.setAttribute('aria-current', 'location');

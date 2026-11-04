@@ -1,6 +1,8 @@
 private/
 *.tmp
 .vercel/
+local-checkpoint-motion-upgrade-2026-11-03/
+local-checkpoint-inquiry-alerts-2026-11-03/
 __pycache__/
 *.py[cod]
 .env
