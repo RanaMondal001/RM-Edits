@@ -176,7 +176,17 @@ def public_content(content: dict) -> dict:
         "contactSubmitLabel", "contactPrivacyNote", "servicesHeading", "servicesIntro", "services",
         "showreelVideo", "showreelThumbnail", "showreelYoutubeUrl", "pricingEnabled", "pricing", "packageConfig", "projects", "colorPreview"
     )
-    return {key: content.get(key) for key in fields}
+    result = {key: content.get(key) for key in fields}
+    # Older production database rows predate the editable package section. Keep
+    # existing database settings authoritative, but serve the bundled defaults
+    # until an admin saves package settings for the first time.
+    if not isinstance(result.get("packageConfig"), dict):
+        try:
+            defaults = json.loads((ROOT / "site-content.json").read_text(encoding="utf-8"))
+            result["packageConfig"] = defaults.get("packageConfig")
+        except (OSError, json.JSONDecodeError):
+            pass
+    return result
 
 
 def request_client_key(request: WebRequest, secret: str = "contact") -> str:
