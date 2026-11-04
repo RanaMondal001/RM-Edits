@@ -319,6 +319,8 @@ details[open] > :not(summary) { animation: dropdown-content-open .28s ease both;
 .package-continue { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 10px 16px; border: 1px solid #007cd5; border-radius: 10px; background: linear-gradient(100deg, #0051ff, #00a9e9); color: #fff; font-size: 13px; font-weight: 750; cursor: pointer; transition: filter .18s ease, transform .18s ease, box-shadow .18s ease; }
 .package-continue:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 8px 22px #0051ff40; }
 .package-continue b { font-size: 19px; }
+.selected-package-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid #168bc3; border-radius: 12px; background: linear-gradient(110deg, #12304b, #11243a); color: #a9c3dc; font-size: 12px; }
+.selected-package-summary strong { color: #fff; font-size: 14px; font-weight: 750; text-align: right; }
 @media (max-width: 760px) { .package-feature-grid.has-addons { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) {
   .package-offerings { padding-top: 2.5rem; padding-bottom: 2.5rem; }

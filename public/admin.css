@@ -180,6 +180,7 @@ body::before {
 .savebar { position: sticky; bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid #1c4c78; border-radius: 15px; background: rgba(7, 17, 30, .97); box-shadow: 0 12px 38px #0008, 0 0 25px #0051ff1c; }
 .footnote { margin-top: 18px; color: #74869e; font-size: 11px; }
 .inquiry-message { overflow-wrap: anywhere; white-space: pre-wrap; color: #e3efff; font-size: 13px; line-height: 1.65; }
+.inquiry-package { margin: 10px 0; padding: 9px 11px; border: 1px solid #28749b; border-radius: 9px; background: #122b41; color: #d8f5ff; font-size: 12px; font-weight: 700; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 
 @media (max-width: 760px) {

@@ -96,6 +96,7 @@ def send_inquiry_notification(inquiry: dict) -> bool:
             f"Name: {safe_name}\n"
             f"Email: {reply_email}\n"
             f"Project: {inquiry.get('project') or 'Not specified'}\n"
+            f"Selected package: {inquiry.get('packageName') or 'Not selected'}\n"
             f"Budget: {inquiry.get('budget') or 'Flexible'}\n"
             f"Reference: {inquiry.get('reference') or 'None'}\n\n"
             "Project brief:\n"
@@ -468,15 +469,16 @@ class Handler(BaseHTTPRequestHandler):
             email = str(data.get("email", "")).strip()
             message = str(data.get("message", "")).strip()
             project = str(data.get("project", "")).strip()
+            package_name = str(data.get("packageName", "")).strip()
             budget = str(data.get("budget", "")).strip()
             reference = str(data.get("reference", "")).strip()
             if not name or len(name) > 120 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email) or len(email) > 254 or not message or len(message) > 5000:
                 return self.reply(400, {"error": "Enter a valid name, email, and project brief."})
-            if len(project) > 120 or len(budget) > 120 or len(reference) > 500 or (reference and not reference.startswith("https://")):
+            if len(project) > 120 or len(package_name) > 120 or len(budget) > 120 or len(reference) > 500 or (reference and not reference.startswith("https://")):
                 return self.reply(400, {"error": "Please check the project type, budget, or reference link."})
             with INQUIRY_LOCK:
                 entries = read_json(INQUIRIES_FILE, [])
-                inquiry = {"id": secrets.token_hex(8), "name": name, "email": email, "project": project, "budget": budget or "Flexible", "reference": reference, "message": message, "createdAt": datetime.now(timezone.utc).isoformat()}
+                inquiry = {"id": secrets.token_hex(8), "name": name, "email": email, "project": project, "packageName": package_name, "budget": budget or "Flexible", "reference": reference, "message": message, "createdAt": datetime.now(timezone.utc).isoformat()}
                 entries.insert(0, inquiry)
                 write_json(INQUIRIES_FILE, entries[:1000])
             CONTACT_ATTEMPTS[key] = (count + 1, start)

@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="./tailwind.config.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=20261103-smooth-motion" />
+  <link rel="stylesheet" href="./styles.css?v=20261104-package-inquiry" />
 </head>
 <body class="film-grain min-h-screen flex flex-col selection:bg-amber-500 selection:text-black">
   <div id="scrollProgress" aria-hidden="true"></div>
@@ -507,6 +507,11 @@
               <span class="text-xs font-mono text-emerald-400" data-content="contactFormBadge">PROJECT INQUIRY FORM</span>
             </div>
 
+            <div id="selectedPackageSummary" class="selected-package-summary hidden" aria-live="polite">
+              <span>Selected package</span>
+              <strong id="selectedPackageName"></strong>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label for="clientName" class="block text-xs font-mono uppercase text-slate-400 mb-1.5">Your Name *</label>
@@ -617,7 +622,7 @@
   <!-- Toast Notification -->
   <div id="toastNotification" class="fixed bottom-5 right-5 z-50 hidden px-4 py-3 rounded-xl bg-amber-500 text-black font-bold text-xs sm:text-sm shadow-xl"></div>
 
-  <script src="./script.js?v=20261103-lazy-grade-load" defer></script>
+  <script src="./script.js?v=20261104-package-name" defer></script>
 </body>
 </html>
 

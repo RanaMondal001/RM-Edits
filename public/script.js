@@ -681,6 +681,7 @@
       let activePackageIndex = 0;
       let activePackage = null;
       let selectedPackageAddonIndexes = new Set();
+      let selectedPackageName = '';
       const packageAddonPriceDefaults = { 'Color grading': 200, 'Sound design & mixing': 200, 'Motion graphics': 500, Subtitles: 0, 'Thumbnail included': 0, 'Include source file': 0 };
       function packagePriceLabel(value) {
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value) || 0);
@@ -781,6 +782,9 @@
         const price = packagePriceLabel(total);
         const tier = `${activePackage.tabLabel || 'Package'} — ${activePackage.title || 'Editing package'}`;
         const extras = selectedPackageAddons();
+        selectedPackageName = tier;
+        document.getElementById('selectedPackageName').textContent = tier;
+        document.getElementById('selectedPackageSummary').classList.remove('hidden');
         document.getElementById('clientBudget').value = price;
         document.getElementById('clientMessage').value = `Hi Rana, I’m interested in the ${tier} package (${price}).${extras.length ? ` Please include these add-ons: ${extras.map(item => item.label).join(', ')}.` : ''} Please let me know the next steps.`;
         document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
@@ -822,6 +826,7 @@
           name: document.getElementById('clientName').value.trim(),
           email: document.getElementById('clientEmail').value.trim(),
           project: document.getElementById('clientProjectType').value,
+          packageName: selectedPackageName,
           budget: document.getElementById('clientBudget').value.trim(),
           reference: document.getElementById('clientDriveLink').value.trim(),
           message: document.getElementById('clientMessage').value.trim(),
@@ -837,6 +842,9 @@
           banner.textContent = 'Thanks — your brief is saved in Rana’s private inbox. He can review it and reply to your email.';
           banner.classList.remove('hidden');
           form.reset();
+          selectedPackageName = '';
+          document.getElementById('selectedPackageSummary').classList.add('hidden');
+          document.getElementById('selectedPackageName').textContent = '';
           showToast('Your project inquiry was saved.');
         } catch (error) {
           banner.textContent = error.message;

@@ -378,7 +378,13 @@
       const email = document.createElement('a'); email.className = 'public-link'; email.href = `mailto:${item.email}`; email.textContent = item.email;
       const details = document.createElement('p'); details.className = 'muted'; details.textContent = `Budget: ${item.budget || 'Flexible'}`;
       const body = document.createElement('p'); body.className = 'inquiry-message'; body.textContent = item.message;
-      card.append(heading, date, email, details, body);
+      card.append(heading, date, email);
+      if (item.packageName) {
+        const packageLine = document.createElement('p'); packageLine.className = 'inquiry-package';
+        packageLine.textContent = `Selected package: ${item.packageName}`;
+        card.append(packageLine);
+      }
+      card.append(details, body);
       if (item.reference) { const link = document.createElement('a'); link.className = 'public-link'; link.href = item.reference; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Open reference link ↗'; card.append(link); }
       inquiriesEditor.append(card);
     });

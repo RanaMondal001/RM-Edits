@@ -113,11 +113,13 @@ def ensure_schema(connection) -> None:
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             project TEXT NOT NULL,
+            package_name TEXT NOT NULL DEFAULT '',
             budget TEXT NOT NULL,
             reference TEXT NOT NULL,
             message TEXT NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
+        ALTER TABLE rm_inquiries ADD COLUMN IF NOT EXISTS package_name TEXT NOT NULL DEFAULT '';
         CREATE TABLE IF NOT EXISTS rm_uploads (
             id TEXT PRIMARY KEY,
             asset_key TEXT NOT NULL,
@@ -481,9 +483,15 @@ def get_admin_inquiries(request: WebRequest):
         ensure_schema(connection)
         require_admin(connection, request)
         rows = connection.execute(
-            "SELECT id, name, email, project, budget, reference, message, created_at FROM rm_inquiries ORDER BY created_at DESC LIMIT 1000"
+            "SELECT id, name, email, project, package_name, budget, reference, message, created_at FROM rm_inquiries ORDER BY created_at DESC LIMIT 1000"
         ).fetchall()
-    return [{key: value for key, value in row.items() if key != "created_at"} | {"createdAt": row["created_at"].isoformat()} for row in rows]
+    inquiries = []
+    for row in rows:
+        item = dict(row)
+        item["packageName"] = item.pop("package_name", "")
+        item["createdAt"] = item.pop("created_at").isoformat()
+        inquiries.append(item)
+    return inquiries
 
 
 @app.delete("/api/admin/inquiries/{inquiry_id}")
@@ -508,11 +516,12 @@ async def submit_contact(request: WebRequest):
     email = str(data.get("email", "")).strip()
     message = str(data.get("message", "")).strip()
     project = str(data.get("project", "")).strip()
+    package_name = str(data.get("packageName", "")).strip()
     budget = str(data.get("budget", "")).strip() or "Flexible"
     reference = str(data.get("reference", "")).strip()
     if not name or len(name) > 120 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email) or len(email) > 254 or not message or len(message) > 5000:
         raise HTTPException(400, "Enter a valid name, email, and project brief.")
-    if len(project) > 120 or len(budget) > 120 or len(reference) > 500 or (reference and (not reference.startswith("https://") or urlparse(reference).hostname is None)):
+    if len(project) > 120 or len(package_name) > 120 or len(budget) > 120 or len(reference) > 500 or (reference and (not reference.startswith("https://") or urlparse(reference).hostname is None)):
         raise HTTPException(400, "Please check the project type, budget, or reference link.")
     key = request_client_key(request)
     inquiry_id = secrets.token_hex(8)
@@ -529,11 +538,11 @@ async def submit_contact(request: WebRequest):
         if row["attempts"] > 5:
             raise HTTPException(429, "Please wait a little while before sending another inquiry.")
         connection.execute(
-            "INSERT INTO rm_inquiries (id, name, email, project, budget, reference, message) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (inquiry_id, name, email, project, budget, reference, message),
+            "INSERT INTO rm_inquiries (id, name, email, project, package_name, budget, reference, message) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (inquiry_id, name, email, project, package_name, budget, reference, message),
         )
     await asyncio.to_thread(send_inquiry_notification, {
-        "name": name, "email": email, "project": project, "budget": budget,
+        "name": name, "email": email, "project": project, "packageName": package_name, "budget": budget,
         "reference": reference, "message": message,
     })
     return {"ok": True}
